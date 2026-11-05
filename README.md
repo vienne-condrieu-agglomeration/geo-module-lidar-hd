@@ -6,7 +6,7 @@ Module GEO qui affiche en 3D le nuage de points **LiDAR HD de l'IGN** à l'endro
 profils en travers et exporte le terrain ou les points en DXF, directement depuis une application GEO.
 
 - **Identifiant** : `geo.lidar.hd`
-- **Version** : 1.1.1
+- **Version** : 1.1.2
 - **État** : essayé sur un serveur GEO. Voir les [limites connues](#limites-connues)
 - **Données** : services publics de l'IGN (nuages de points, MNT, MNS, orthophotos) et cadastre diffusé par Etalab.
   Le module n'a pas de serveur : le navigateur lit directement ces données
@@ -17,7 +17,7 @@ Projet communautaire indépendant, non affilié à Business Geografic.
 
 - [Ce que permet le module](#ce-que-permet-le-module)
 - [Installation](#installation)
-  - [Prérequis : le module GEO API v2](#prérequis--le-module-geo-api-v2)
+  - [Prérequis GEO API v2](#prérequis-geo-api-v2)
 - [Réglages du Générateur](#réglages-du-générateur)
 - [Accès réseau nécessaires](#accès-réseau-nécessaires)
 - [Limites connues](#limites-connues)
@@ -62,7 +62,7 @@ Autres fonctions :
 
 L'envoi direct au serveur (`npm run publish`) n'est pas disponible pour ce module.
 
-### Prérequis : le module GEO API v2
+### Prérequis GEO API v2
 
 **L'application doit comporter le module GEO API v2 de la plateforme**, à ajouter dans le Générateur. Le module déclare
 cette API en dépendance fixe : sans elle, c'est toute l'application qui risque de ne plus démarrer, avec une erreur

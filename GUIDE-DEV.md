@@ -14,7 +14,7 @@ Fonctionnement interne, vérifications réalisées et pistes d'évolution. Pour 
 - [Rendu](#rendu)
 - [Navigation 3D](#navigation-3d)
 - [Pointage dans le nuage](#pointage-dans-le-nuage)
-- [Vérifié / à vérifier](#vérifié--à-vérifier)
+- [Vérifications](#vérifications)
 - [Journal des nouveautés](#journal-des-nouveautés)
 - [Pistes d'évolution](#pistes-dévolution)
 
@@ -118,7 +118,7 @@ le module projette lui-même à l'écran les points affichés (~20 ms pour 2 mil
 la caméra à moins de 3 px du clic (6 px à défaut) ; les classes masquées et la tranche d'altitude sont respectées.
 Le point retenu est un point du niveau de détail affiché : zoomer pour pointer plus finement.
 
-## Vérifié / à vérifier
+## Vérifications
 
 Les tests automatisés tournent en Chromium headless (WebGL logiciel) avec un `geoApplication` factice, et un vrai
 AngularJS pour compiler le gabarit : bundle, worker Blob, WASM, EPSG:2154, chargement d'une dalle de 292 Mo

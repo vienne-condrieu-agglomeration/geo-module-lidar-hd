@@ -11,6 +11,12 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+## [1.1.2] — 2026-11-05
+
+### Corrigé
+
+- Documentation : liens du sommaire réparés sur le site de la bibliothèque de modules. Le module lui-même ne change pas
+
 ## [1.1.1] — 2026-11-05
 
 ### Modifié

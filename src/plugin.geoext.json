@@ -1,0 +1,113 @@
+{
+  "name": "geo.lidar.hd",
+  "displayName": "LiDAR HD 3D (IGN)",
+  "version": "1.0.0",
+  "minGeoVersion": "3.2.0",
+  "author": "fallamanche@vienne-condrieu-agglomeration.fr",
+  "allowMultiple": false,
+  "reuseConfiguration": true,
+  "preview": "src/preview.png",
+  "compatibleZoneTags": [
+    "global.pro",
+    "leftpanel",
+    "widget.side.pro",
+    "widget.side"
+  ],
+  "code": {
+    "moduleName": "geo.lidar.hd",
+    "dependencies": [
+      "bg.acf.base",
+      "bg.common.geo.GeoApi"
+    ]
+  },
+  "configuration": [
+    {
+      "@type": "com.bg.functionality.canvas.configuration.ConfigurationGroup",
+      "name": "Données LiDAR HD",
+      "elements": [
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "URL du WFS des dalles",
+          "description": "Service WFS publiant l'index des dalles LiDAR HD (couche IGNF_LIDAR-HD_METADONNEE:metadata, dont le champ url_npl pointe le fichier COPC). Doit autoriser le CORS et les requêtes Range.",
+          "key": "wfsUrl",
+          "required": true,
+          "type": "STRING",
+          "defaultValue": "https://data.geopf.fr/wfs"
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Budget de points",
+          "description": "Nombre maximal de points affichés simultanément, toutes dalles confondues. Plus il est élevé, plus le rendu est fin mais lourd pour le GPU et le réseau.",
+          "key": "pointBudget",
+          "required": false,
+          "type": "NUMBER",
+          "minValue": 200000,
+          "maxValue": 10000000,
+          "step": 100000,
+          "defaultValue": 2000000
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Charger les dalles voisines",
+          "description": "Après la dalle cliquée, charge en arrière-plan les 8 dalles qui l'entourent (9 km² au total). Le budget de points est partagé entre les dalles. À décocher sur des postes modestes ou une connexion lente. C'est la valeur par défaut du bouton « Voisines » du panneau : chaque utilisateur peut la changer, son choix est mémorisé dans son navigateur.",
+          "key": "neighbourTiles",
+          "required": false,
+          "type": "BOOLEAN",
+          "defaultValue": true
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "URL du décodeur laz-perf",
+          "description": "Dossier contenant laz-perf.wasm, chargé par le navigateur pour décompresser le LAZ. Par défaut le CDN jsDelivr ; à remplacer par une copie interne si le poste n'a pas accès à Internet public.",
+          "key": "lazPerfUrl",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": "https://cdn.jsdelivr.net/npm/laz-perf@0.0.6/lib"
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "URL du WMS d'orthophotos",
+          "description": "Service WMS (couche ORTHOIMAGERY.ORTHOPHOTOS, EPSG:2154, CORS) utilisé pour colorer les points avec l'orthophoto IGN. Laisser vide pour désactiver ce mode.",
+          "key": "orthoWmsUrl",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": "https://data.geopf.fr/wms-r/wms"
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Résolution maximale de l'orthophoto",
+          "description": "Taille maximale (en pixels, pour une dalle de 1 km) de l'orthophoto qui colore les points. Le mode Orthophoto est disponible dès la première passe (1024 px) ; chaque passe plus fine la remplace ensuite : 2048 px ≈ 0,5 m/pixel, 4096 px ≈ 0,24 m/pixel (un pixel par point, mais ~14 s et ~2,3 Mo de plus par dalle sur le WMS de l'IGN, qui limite le débit).",
+          "key": "orthoMaxSize",
+          "required": false,
+          "type": "ENUMERATED",
+          "values": [
+            "1024",
+            "2048",
+            "4096"
+          ],
+          "labels": [
+            "1024 px (rapide)",
+            "2048 px (équilibré)",
+            "4096 px (détaillé)"
+          ],
+          "defaultValue": "4096"
+        }
+      ]
+    },
+    {
+      "@type": "com.bg.functionality.canvas.configuration.ConfigurationGroup",
+      "name": "Options du panneau",
+      "elements": [
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Libellé de l'onglet",
+          "description": "Libellé de l'onglet LiDAR HD dans la barre latérale droite (affiché au survol de son icône).",
+          "key": "toolName",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": "LiDAR HD"
+        }
+      ]
+    }
+  ]
+}

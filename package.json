@@ -1,0 +1,37 @@
+{
+  "name": "geo-lidar-hd",
+  "version": "1.0.0",
+  "description": "Module GEO d'affichage 3D des nuages de points LiDAR HD de l'IGN (COPC) dans un panneau latéral, basé sur iTowns",
+  "main": "src/js/extension.js",
+  "devDependencies": {
+    "archiver": "^5.3.1",
+    "css-loader": "^6.11.0",
+    "minimizer-webpack-plugin": "5.13.0",
+    "style-loader": "^3.3.4",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^5.1.4"
+  },
+  "scripts": {
+    "build": "webpack --config webpack.worker.config.js && webpack",
+    "watch": "webpack --config webpack.worker.config.js && webpack --watch",
+    "package": "npm run check:version && npm run build && node scripts/package.js",
+    "test": "npm run check:version && node test/changelog.test.mjs && node test/profile-cadastre.test.mjs && node test/tours.test.mjs",
+    "check:version": "node scripts/check-version.js"
+  },
+  "keywords": [
+    "geo",
+    "lidar",
+    "copc",
+    "itowns",
+    "3d",
+    "ign"
+  ],
+  "author": "fallamanche@vienne-condrieu-agglomeration.fr",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "driver.js": "^1.10.2",
+    "itowns": "2.46.0",
+    "proj4": "^2.19.3",
+    "three": "^0.174.0"
+  }
+}

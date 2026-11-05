@@ -1,7 +1,7 @@
 {
   "name": "geo.lidar.hd",
   "displayName": "LiDAR HD 3D (IGN)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minGeoVersion": "3.2.0",
   "author": "fallamanche@vienne-condrieu-agglomeration.fr",
   "allowMultiple": false,
@@ -91,6 +91,15 @@
             "4096 px (détaillé)"
           ],
           "defaultValue": "4096"
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Projections proposées",
+          "description": "Projections proposées pour le pointage, l'export du terrain et le DXF 3D du profil : codes séparés par des virgules, le premier étant le choix par défaut. Codes acceptés : EPSG:2154 (Lambert-93), EPSG:3942 à EPSG:3950 (CC42 à CC50), EPSG:4326 (WGS84). Un code inconnu est ignoré ; une liste vide reprend les valeurs par défaut.",
+          "key": "crsList",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": "EPSG:2154,EPSG:3942,EPSG:3943,EPSG:3944,EPSG:3945,EPSG:3946,EPSG:3947,EPSG:3948,EPSG:3949,EPSG:3950,EPSG:4326"
         }
       ]
     },

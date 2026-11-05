@@ -11,6 +11,19 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+## [1.1.0] — 2026-11-05
+
+### Ajouté
+
+- Projections : toutes les coniques conformes du RGF93 (CC42 à CC50) sont proposées avec Lambert-93 et WGS84, pour le
+  pointage, l'export du terrain et le DXF 3D du profil. Le nouveau réglage « Projections proposées » du Générateur
+  choisit la liste et son ordre. Le pointage donne aussi les coordonnées en WGS84, en degrés décimaux
+
+### Modifié
+
+- Export du terrain : la projection proposée d'abord est la première de la liste, donc Lambert-93 par défaut au lieu de
+  CC45
+
 ## [1.0.0] — 2026-11-05
 
 Première version publiée.

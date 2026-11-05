@@ -16,18 +16,14 @@ import { createRasterReader } from './raster.js';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TOURS, MAP_TARGET } from './tours.js';
+import { CATALOG as _CRS_CATALOG, DEFAULT_LIST as _CRS_DEFAULT, parseCrsList, pickDefault } from './crs.js';
 import { parcelLimits, buildingSpans, snapTargets, nearestSnap } from './profile-cadastre.js';
 import { createChangelog } from './changelog.js';
 import changelogMd from '../../CHANGELOG.md';
 
-// Lambert-93 : iTowns ne connaît que 4326/3857/4978. Les dalles LiDAR HD sont en EPSG:2154.
-proj4.defs('EPSG:2154', '+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 ' +
-    '+ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
-// Coniques conformes 9 zones, proposées pour l'affichage des coordonnées d'un point (CC45 et CC46).
-proj4.defs('EPSG:3945', '+proj=lcc +lat_0=45 +lon_0=3 +lat_1=44.25 +lat_2=45.75 +x_0=1700000 +y_0=4200000 ' +
-    '+ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
-proj4.defs('EPSG:3946', '+proj=lcc +lat_0=46 +lon_0=3 +lat_1=45.25 +lat_2=46.75 +x_0=1700000 +y_0=5200000 ' +
-    '+ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+// iTowns ne connaît que 4326/3857/4978. Les dalles LiDAR HD sont en EPSG:2154 ; les autres projections sont proposées
+// pour le pointage et les exports. Le catalogue est dans crs.js.
+_CRS_CATALOG.forEach(function (c) { if (c.def) { proj4.defs(c.code, c.def); } });
 
 // iTowns crée son worker par `new Worker(new URL(...))`, ce qui produirait un fichier à part que GEO
 // ne sert pas. Le loader de build (scripts/loaders/inline-worker-loader.js) redirige vers cette fonction.
@@ -181,6 +177,7 @@ angular
         var _aroundOn     = true;   // charger les 8 dalles voisines en arrière-plan (choix de l'utilisateur)
         var _aroundSeq    = 0;      // invalide un chargement de voisines en cours quand on les désactive
         var _budgetTotal  = 2000000;   // budget de points partagé entre les dalles affichées
+        var _CRS_LIST     = parseCrsList(_CRS_DEFAULT).items;   // réglage « crsList » du Générateur
         // Dernière dalle chargée : rechargée à la réouverture du panneau (GEO détruit le module à la fermeture), tant que
         // la fermeture date de moins de _REOPEN_TTL ; le cache de plages COPC est gardé aussi longtemps.
         var _REOPEN_TTL   = 5 * 60 * 1000;
@@ -198,6 +195,10 @@ angular
                 _pointBudget = parseInt(props.pointBudget, 10) || _pointBudget;
                 _lazPerfUrl  = (props.lazPerfUrl || _lazPerfUrl).trim().replace(/\/+$/, '');
                 _toolName    = props.toolName || _toolName;
+                var crs = parseCrsList(props.crsList);
+                _CRS_LIST = crs.items;
+                if (crs.unknown.length) { console.warn('[geo-lidar-hd] projections inconnues ignorées :', crs.unknown.join(', ')); }
+                if (crs.fallback && props.crsList) { console.warn('[geo-lidar-hd] aucune projection valide dans crsList : liste par défaut.'); }
                 var maxSize = parseInt(props.orthoMaxSize, 10);
                 if ([1024, 2048, 4096].indexOf(maxSize) !== -1) { _orthoMaxSize = maxSize; }
                 _neighbours = props.neighbourTiles !== false;
@@ -575,9 +576,9 @@ angular
                 '  <div class="geo-lidar-pick" ng-if="pick">',
                 '    <button class="geo-lidar-x" ng-click="clearPick()" title="Effacer le point" aria-label="Effacer le point">' + _icon('x') + '</button>',
                 '    <div>Altitude <b>{{ pick.z | number:2 }} m</b> <span class="geo-lidar-note">NGF · {{ pick.cls }}</span></div>',
-                '    <div class="geo-lidar-pick-xy">X {{ pick.x }} · Y {{ pick.y }}</div>',
+                '    <div class="geo-lidar-pick-xy">{{ ui.pickCrs === \'EPSG:4326\' ? \'Lon\' : \'X\' }} {{ pick.x }} · {{ ui.pickCrs === \'EPSG:4326\' ? \'Lat\' : \'Y\' }} {{ pick.y }}</div>',
                 '    <div class="geo-lidar-pick-opts">',
-                '      <select ng-model="ui.pickCrs" ng-options="c.id as c.label for c in pickCrsList" ng-change="pickCrsChanged()" title="Système de coordonnées affiché"></select>',
+                '      <select ng-model="ui.pickCrs" ng-options="c.code as c.name for c in pickCrsList" ng-change="pickCrsChanged()" title="Système de coordonnées affiché"></select>',
                 '      <button class="geo-lidar-btn geo-lidar-btn--small" ng-click="copyPick()" title="Copier X, Y et l\'altitude dans le presse-papiers">{{ pick.copied ? \'Copié\' : \'Copier\' }}</button>',
                 '    </div>',
                 '  </div>',
@@ -717,7 +718,7 @@ angular
                 $scope.status    = null;
                 $scope.wide      = false;
                 $scope.pick      = null;               // point cliqué dans le nuage : altitude, classe, coordonnées
-                $scope.pickCrsList = _PICK_CRS;
+                $scope.pickCrsList = _CRS_LIST;
                 $scope.ui        = { pickCrs: _readPickCrs(), panelOpen: false, filtersOpen: false, classesOpen: false, modeUserSet: false, orthoReady: false, groundReady: false, heightOn: false, prevMode: null, filterTab: 'alt', exportOpen: false, maqOpen: false, hasColor: false, helpOpen: false, helpAuto: false, infoOpen: _readInfoOpen() };
                 _aroundOn = _readNeighbours();
                 $scope.ui.neighbours = _aroundOn;      // bouton « Voisines » : choix mémorisé, sinon réglage du générateur
@@ -735,7 +736,7 @@ angular
                                      zoomed: false, curves: true, tall: false, cad: false, cadMsg: '', dxfCrs: _readDxfCrs(), info: null, hover: null, exact: { state: 'idle', pct: 0 }, measure: null, measuring: false };
                 $scope.profileModes = _profileModeList($scope.ui);
                 // Export du terrain (MNT) en DXF : emprise tracée sur la carte GEO, maillage en faces 3D.
-                $scope.mntCrs = _MNT_CRS;
+                $scope.mntCrs = _CRS_LIST;
                 $scope.dxfCrsChanged = function () { _saveDxfCrs($scope.profile.dxfCrs); };
                 $scope.mntRes = _MNT_RES;
                 // Maquette 3D : t = curseur terrain nu (0) -> surface (100), exag = exagération verticale
@@ -747,7 +748,7 @@ angular
                 $scope.mntOrthoEstimate = function () { return _orthoPlan($scope.mnt.crs, $scope.mntOrtho.res); };
                 $scope.mntPtsClasses = _PTS_CLASSES.map(function (id) { return { id: id, label: _CLASS_NAMES[id] || ('Classe ' + id) }; });
                 $scope.mntPtsThin = _PTS_THIN;
-                $scope.mnt = { open: false, drawing: false, state: 'idle', zone: null, crs: 'EPSG:3945', k: 1, pct: 0, msg: '', tab: 'mnt' };
+                $scope.mnt = { open: false, drawing: false, state: 'idle', zone: null, crs: _CRS_LIST[0].code, k: 1, pct: 0, msg: '', tab: 'mnt' };
 
                 var _pointerClickSub = null;
 
@@ -2263,14 +2264,13 @@ angular
         // parmi ceux à moins de _PICK_NEAR pixels du clic ; à défaut, parmi ceux à moins de _PICK_RADIUS pixels
         // (un point isolé au premier plan, à côté du curseur, ne l'emporte pas sur la surface visée).
         var _PICK_NEAR = 3, _PICK_RADIUS = 6;
-        var _PICK_CRS = [{ id: 'EPSG:2154', label: 'Lambert-93' }, { id: 'EPSG:3945', label: 'CC45' }, { id: 'EPSG:3946', label: 'CC46' }];
         var _PICK_KEY = 'geo-lidar-hd-pick-crs';
         var _pickEl = null, _pickDown = null, _pickBall = null;
 
         function _readPickCrs() {
             var v = null;
             try { v = window.localStorage.getItem(_PICK_KEY); } catch (e) { /* stockage indisponible */ }
-            return _PICK_CRS.some(function (c) { return c.id === v; }) ? v : 'EPSG:2154';
+            return pickDefault(_CRS_LIST, v);
         }
         function _savePickCrs(v) {
             try { window.localStorage.setItem(_PICK_KEY, v); } catch (e) { /* stockage indisponible */ }
@@ -2281,7 +2281,7 @@ angular
         function _readDxfCrs() {
             var v = null;
             try { v = window.localStorage.getItem(_DXF_CRS_KEY); } catch (e) { /* stockage indisponible */ }
-            return _MNT_CRS.some(function (c) { return c.code === v; }) ? v : 'EPSG:2154';
+            return pickDefault(_CRS_LIST, v);
         }
         function _saveDxfCrs(v) {
             try { window.localStorage.setItem(_DXF_CRS_KEY, v); } catch (e) { /* stockage indisponible */ }
@@ -2391,12 +2391,13 @@ angular
             });
         }
 
-        // Coordonnées du point dans le système choisi (Lambert-93, CC45 ou CC46)
+        // Coordonnées du point dans le système choisi (réglage crsList)
         function _formatPick() {
             var sc = _currentScope, pk = sc && sc.pick;
             if (!pk) { return; }
             var xy = sc.ui.pickCrs === 'EPSG:2154' ? pk.l93 : proj4('EPSG:2154', sc.ui.pickCrs, pk.l93);
-            pk.x = xy[0].toFixed(2); pk.y = xy[1].toFixed(2); pk.copied = false;
+            var digits = sc.ui.pickCrs === 'EPSG:4326' ? 8 : 2;   // 1e-8 ° ~ 1 mm
+            pk.x = xy[0].toFixed(digits); pk.y = xy[1].toFixed(digits); pk.copied = false;
         }
 
         function _copyPick() {
@@ -3701,12 +3702,6 @@ angular
         // Les MNT de l'IGN forment une grille continue de 0,5 m : les nœuds sont aux multiples de 0,5 m en Lambert-93
         // (une dalle porte x de X0 à X0 + 999,5 et y de Y0 - 999,5 à Y0, avec (X0, Y0) = coin NO), donc deux dalles
         // voisines se raccordent sans trou ni doublon. Le maillage garde les nœuds multiples de k × 0,5 m.
-        var _MNT_CRS = [
-            { code: 'EPSG:3945', label: 'CC45 (EPSG:3945)', short: 'CC45' },
-            { code: 'EPSG:3946', label: 'CC46 (EPSG:3946)', short: 'CC46' },
-            { code: 'EPSG:2154', label: 'Lambert-93 (EPSG:2154)', short: 'L93' },
-            { code: 'EPSG:4326', label: 'WGS84 (EPSG:4326), degrés', short: 'WGS84' }
-        ];
         var _MNT_RES = [
             { k: 1, label: '50 cm (résolution du MNT)', short: '50cm' },
             { k: 2, label: '1 m', short: '1m' },
@@ -3989,7 +3984,7 @@ angular
             var sc = _currentScope, m = _mnt;
             if (!sc || !m || !m.tiles.length || _mntJob) { return; }
             var crs = sc.mnt.crs, k = Number(sc.mnt.k) || 1;
-            var ci = _MNT_CRS.filter(function (c) { return c.code === crs; })[0] || _MNT_CRS[0];
+            var ci = _CRS_LIST.filter(function (c) { return c.code === crs; })[0] || _CRS_LIST[0];
             var ri = _MNT_RES.filter(function (r) { return r.k === k; })[0] || _MNT_RES[0];
             var cc = sc.mntCad, cad = null;
             if (cc && cc.on && (cc.parcelles || cc.batiments || cc.sections)) {
@@ -4638,7 +4633,7 @@ angular
             var ids = _PTS_CLASSES.filter(function (c) { return sc.mntPts.classes[c]; });
             if (!ids.length) { return; }
             var thin = Number(sc.mntPts.thin) || 1;
-            var ci = _MNT_CRS.filter(function (c) { return c.code === sc.mnt.crs; })[0] || _MNT_CRS[0];
+            var ci = _CRS_LIST.filter(function (c) { return c.code === sc.mnt.crs; })[0] || _CRS_LIST[0];
             var job = { cancelled: false, points: 0, chars: 0, failed: 0, sink: null };
             _mntJob = job;
             _syncMntModify();   // emprise figée pendant l'export
@@ -4954,7 +4949,7 @@ angular
         function _exportDxfPoints() {
             var p = _prof, sc = _currentScope;
             if (!p || !p.n || !p.nv || !p.x || !p.lut || !sc) { return; }
-            var crs = sc.profile.dxfCrs, ci = _MNT_CRS.filter(function (c) { return c.code === crs; })[0] || _MNT_CRS[2];
+            var crs = sc.profile.dxfCrs, ci = _CRS_LIST.filter(function (c) { return c.code === crs; })[0] || _CRS_LIST[0];
             var conv = ci.code === 'EPSG:2154' ? null : proj4('EPSG:2154', ci.code);
             function xy(x, y) { return conv ? conv.forward([x, y]) : [x, y]; }
             var d = _dxf(ci.code === 'EPSG:4326' ? 9 : 3), names = {}, i, q;

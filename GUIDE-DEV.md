@@ -8,6 +8,7 @@ Fonctionnement interne, vérifications réalisées et pistes d'évolution. Pour 
 - [Particularités techniques](#particularités-techniques)
 - [Cycle de vie et mémoire des outils](#cycle-de-vie-et-mémoire-des-outils)
 - [Cadastre dans le profil](#cadastre-dans-le-profil)
+- [Projections](#projections)
 - [Visites guidées](#visites-guidées)
 - [Dalles voisines (9 dalles)](#dalles-voisines-9-dalles)
 - [Rendu](#rendu)
@@ -51,6 +52,14 @@ Les calculs sont dans `src/js/profile-cadastre.js`, sans dépendance au navigate
 `test/profile-cadastre.test.mjs` : limites traversées (`parcelLimits`), longueurs en bâtiment (`buildingSpans`), accroche du
 curseur (`snapTargets`, `nearestSnap`). Les fichiers communaux d'Etalab sont gardés en mémoire (6 au plus, `_cadFiles`).
 L'accroche ne porte que sur la distance : l'altitude reste celle du nuage à cet endroit, ou du MNT s'il n'y a pas de point.
+
+## Projections
+
+Le catalogue et la lecture du réglage `crsList` sont dans `src/js/crs.js`. `test/crs.test.mjs` compare chaque définition à
+des valeurs de PROJ, au centimètre près. Pour ajouter une projection : compléter `CATALOG`, le tableau du README, la
+description du réglage dans le manifeste et les valeurs de référence du test. Lambert-93 (dalles, calculs) et WGS84 (WFS,
+carte) restent utilisés en interne, quelle que soit la liste. WGS84 a ses cas particuliers : orthophoto indisponible,
+coordonnées en degrés. Le WMS de l'IGN accepte `EPSG:3942` à `EPSG:3950` (vérifié dans ses capacités le 2026-11-05).
 
 ## Visites guidées
 
@@ -103,7 +112,7 @@ mémorisé dans la clé `geo-lidar-hd-help-dismissed`.
 ## Pointage dans le nuage
 
 Un clic (sans glisser) sur un point de la vue 3D affiche son **altitude** (NGF), sa classe et ses **coordonnées** en
-Lambert-93, CC45 ou CC46 (choix mémorisé dans `localStorage`, clé `geo-lidar-hd-pick-crs`), avec un bouton « Copier ».
+l'une des projections proposées (choix mémorisé dans `localStorage`, clé `geo-lidar-hd-pick-crs`), avec un bouton « Copier ».
 Un repère orange marque le point dans la vue 3D et sur la carte GEO. Le pointage d'iTowns étant limité à 65 535 points,
 le module projette lui-même à l'écran les points affichés (~20 ms pour 2 millions de points) et retient le plus proche de
 la caméra à moins de 3 px du clic (6 px à défaut) ; les classes masquées et la tranche d'altitude sont respectées.

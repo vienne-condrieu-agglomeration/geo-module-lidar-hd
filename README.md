@@ -4,7 +4,7 @@ Module GEO qui affiche en 3D le nuage de points **LiDAR HD de l'IGN** à l'endro
 profils en travers et exporte le terrain ou les points en DXF, directement depuis une application GEO.
 
 - **Identifiant** : `geo.lidar.hd`
-- **Version** : 1.0.0
+- **Version** : 1.1.0
 - **État** : essayé sur un serveur GEO. Voir les [limites connues](#limites-connues)
 - **Données** : services publics de l'IGN (nuages de points, MNT, MNS, orthophotos) et cadastre diffusé par Etalab.
   Le module n'a pas de serveur : le navigateur lit directement ces données
@@ -39,7 +39,7 @@ endroit, puis les 8 dalles voisines en arrière-plan : un anneau bleu autour du 
 
 Autres fonctions :
 
-- **Pointage** : un clic sur un point donne son altitude NGF, sa classe et ses coordonnées (Lambert-93, CC45 ou CC46).
+- **Pointage** : un clic sur un point donne son altitude NGF, sa classe et ses coordonnées dans les projections proposées.
 - **Cadastre dans le profil** : limites de parcelles et bâti sur le graphique. Le curseur et les mesures s'y accrochent.
   Tracé indicatif, sans valeur juridique, et absent des exports du profil.
 - **Passage d'un outil à l'autre** : Profil et Terrain gardent leur tracé en mémoire.
@@ -76,6 +76,7 @@ cette API en dépendance fixe : sans elle, c'est toute l'application qui risque 
 | `lazPerfUrl` | Dossier de `laz-perf.wasm` | jsDelivr |
 | `orthoWmsUrl` | WMS d'orthophotos pour colorer les points (vide = désactivé) | `https://data.geopf.fr/wms-r/wms` |
 | `orthoMaxSize` | Résolution maximale de l'orthophoto (1024 / 2048 / 4096 px) | 4096 |
+| `crsList` | Projections proposées (pointage, export du terrain, DXF 3D du profil), séparées par des virgules. La première est le choix par défaut. Codes acceptés : `EPSG:2154`, `EPSG:3942` à `EPSG:3950`, `EPSG:4326` | toutes, Lambert-93 en tête |
 | `toolName` | Libellé de l'onglet | LiDAR HD |
 
 ## Accès réseau nécessaires
@@ -108,7 +109,7 @@ Le serveur de l'IGN limite le débit : le module limite ses requêtes en parall�
 ```bash
 npm install
 npm run build      # worker, puis dist/main.js
-npm test           # cohérence des versions, calculs du cadastre, étapes des visites guidées
+npm test           # versions, calculs du cadastre, visites guidées, projections
 npm run package    # build + geo-lidar-hd_AAAAMMJJ-HHMM.zip
 ```
 

@@ -1,10 +1,12 @@
 # geo-lidar-hd — LiDAR HD 3D (IGN)
 
+![Aperçu : vue 3D de neuf dalles, pointage, profil en travers et cadastre, puis couleurs par classification et intensité](docs/apercu.gif)
+
 Module GEO qui affiche en 3D le nuage de points **LiDAR HD de l'IGN** à l'endroit cliqué sur la carte, trace des
 profils en travers et exporte le terrain ou les points en DXF, directement depuis une application GEO.
 
 - **Identifiant** : `geo.lidar.hd`
-- **Version** : 1.1.0
+- **Version** : 1.1.1
 - **État** : essayé sur un serveur GEO. Voir les [limites connues](#limites-connues)
 - **Données** : services publics de l'IGN (nuages de points, MNT, MNS, orthophotos) et cadastre diffusé par Etalab.
   Le module n'a pas de serveur : le navigateur lit directement ces données

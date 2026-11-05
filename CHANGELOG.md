@@ -11,6 +11,12 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+## [1.1.1] — 2026-11-05
+
+### Modifié
+
+- Documentation : un aperçu animé présente le module en tête du README. Le module lui-même ne change pas
+
 ## [1.1.0] — 2026-11-05
 
 ### Ajouté

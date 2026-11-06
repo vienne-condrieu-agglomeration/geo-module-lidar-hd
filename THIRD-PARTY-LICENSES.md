@@ -1417,6 +1417,7 @@ Un composant sous double licence (iTowns : CeCILL-B ou MIT) est utilisé ici sou
 ### Icônes Lucide — copiées en SVG dans le code (`src/js/extension.js`)
 
 - Licence : **ISC** (et MIT pour les icônes dérivées de Feather) — https://lucide.dev, https://github.com/lucide-icons/lucide
+- La vignette `src/preview.png` (64×64) combine les icônes « scan » et « box », trait porté à 2,25.
 - Texte (dépôt d'origine) :
 
     ISC License

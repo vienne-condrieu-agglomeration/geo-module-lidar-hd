@@ -29,8 +29,8 @@ curl -o in/bdtopo.geojson \
   "https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3:batiment&OUTPUTFORMAT=application/json&SRSNAME=EPSG:2154&BBOX=846000,6493000,847000,6494000,EPSG:2154"
 ```
 
-Le WFS limite le nombre d'objets par réponse : contrôler que `numberReturned` égale `numberMatched` dans le fichier (1 574
-bâtiments pour cette dalle). Si ce n'est pas le cas, paginer (`STARTINDEX`, `COUNT`) ou passer par un GeoPackage.
+Le WFS peut limiter le nombre d'objets par réponse : contrôler que le nombre d'objets du fichier égale `numberMatched` (1 574
+bâtiments pour cette dalle, obtenus en une requête). Si ce n'est pas le cas, paginer (`STARTINDEX`, `COUNT`) ou passer par un GeoPackage.
 Lire directement le WFS depuis roofer (`WFS:https://…`) a été essayé : l'ouverture échoue dans l'image.
 
 ## 2. Reconstruction
@@ -45,7 +45,7 @@ docker run --rm --user "$(id -u):$(id -g)" -w /data -v "$PWD":/data \
 
 - `--box xmin ymin xmax ymax` : région d'intérêt (ici la dalle) ; hors de cette région, les données sont ignorées ;
 - `--id-attribute cleabs` : l'identifiant BD TOPO devient l'identifiant du bâtiment ;
-- `--user` et `-w /data` : sans eux, roofer écrit son journal `roofer.log.json` dans un dossier non accessible et s'arrête ;
+- `--user` fait écrire les fichiers à votre nom (sinon ils appartiennent à root) ; avec `--user`, `-w /data` est indispensable : roofer écrit `roofer.log.json` dans le dossier courant et s'arrête sinon ;
 - LoD 2.2 est la sortie par défaut (`--lod22`) ; classes LAS par défaut : 6 bâtiment, 2 sol (`--bld-class`, `--grnd-class`) ;
 - `--srs EPSG:2154` n'est utile que si l'entrée n'a pas de projection déclarée ;
 - sans `--tiling` (défaut), une seule sortie : `out/<xmin>_<ymin>.city.jsonl`.
@@ -67,6 +67,12 @@ nuage est insuffisant), bâtiments dont le centre est hors de la dalle, et il si
 
 Publier ensuite les `.bld` à côté les uns des autres sur un serveur de fichiers statiques (CORS ouvert), nommés
 `<dalle>.bld`, et renseigner l'URL du dossier dans le réglage `buildingsUrl` du module.
+
+## Exécution réelle (dalle 0846-6494)
+
+Commandes ci-dessus exécutées telles quelles le 2026-11-13 : roofer lit le `.copc.laz` de la Géoplateforme, 1 574 emprises
+dont 1 531 avec assez de points, durée 1 min 28 s sur 12 cœurs, sortie `out/846000_6493000.city.jsonl` (8 Mo).
+Conversion : 1 471 bâtiments, 128 033 triangles, 1 468 emprises, `.bld` de 2,7 Mo, en 1 s.
 
 ## Ce qui a été observé de la sortie de roofer v1.0.0
 

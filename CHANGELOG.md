@@ -11,6 +11,17 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+## [1.2.0] — 2026-11-13
+
+### Ajouté
+
+- Maquette : des bâtiments reconstruits en 3D (LoD2, toits en pente et murs droits) peuvent remplacer les bâtiments bruités
+  du MNS. Une case « Bâtiments LoD2 » apparaît dans le panneau Maquette quand l'administrateur a renseigné le réglage
+  « URL des bâtiments LoD2 » ; elle est absente sinon, et le module se comporte comme avant. Les bâtiments suivent le
+  curseur (du terrain nu à la surface), le relief et « Animer ». Les murs sont gris, les toits portent l'orthophoto.
+  Fonction en prototype : les fichiers se préparent hors du module (documentation du dépôt), une dalle sans fichier
+  reste inchangée, et les bâtiments qu'on ne sait pas reconstruire restent tels que dans le MNS
+
 ## [1.1.2] — 2026-11-05
 
 ### Corrigé

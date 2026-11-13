@@ -12,6 +12,7 @@ Fonctionnement interne, vérifications réalisées et pistes d'évolution. Pour 
 - [Visites guidées](#visites-guidées)
 - [Dalles voisines (9 dalles)](#dalles-voisines-9-dalles)
 - [Rendu](#rendu)
+- [Bâtiments LoD2](#bâtiments-lod2)
 - [Navigation 3D](#navigation-3d)
 - [Pointage dans le nuage](#pointage-dans-le-nuage)
 - [Vérifications](#vérifications)
@@ -99,6 +100,64 @@ l'orthophoto de la dalle (WMS `ORTHOIMAGERY.ORTHOPHOTOS`, par passes 1024, 2048 
 d'iTowns (`_patchOrthoShader`, désactivé automatiquement si le shader change). Le panneau « Style » reprend
 les réglages de l'exemple iTowns (forme, taille et atténuation, gamma, opacité, seuil SSE, budget de points,
 fond clair/sombre, visibilité par classe).
+
+## Bâtiments LoD2
+
+Prototype. La maquette (MNT + MNS) rend les bâtiments en rampes bruitées. Avec le réglage `buildingsUrl`, le module
+superpose des bâtiments reconstruits par [roofer](https://github.com/3DBAG/roofer) (3DBAG), lus dans des fichiers statiques
+`<dalle>.bld`, et retire les bâtiments du MNS. Sans le réglage, rien n'est chargé ni modifié.
+
+**Pipeline** (hors navigateur, `scripts/roofer/README.md`) : nuage LiDAR HD (COPC) + emprises BD TOPO → roofer (Docker,
+`3dgi/roofer:v1.0.0`) → CityJSONSeq → `scripts/roofer/cityjsonseq_to_bld.py` → un `.bld` par dalle. Mesuré sur la dalle
+0846-6494 : roofer lit directement le `.copc.laz` et traite 1 531 bâtiments en 1 min 28 s ; la conversion prend 1 s et donne
+un `.bld` de 2,7 Mo (1 471 bâtiments, 128 033 triangles).
+
+**Format `.bld`** (little-endian, toutes les sections alignées sur 4 octets ; dalle « XXXX-YYYY » = coin nord-ouest en km
+Lambert-93, origine locale = coin sud-ouest `(bbox[0], bbox[1])`, soit `(XXXX·1000, YYYY·1000 - 1000)`) :
+
+| Section | Contenu |
+|---|---|
+| En-tête, 40 octets | `"BLD1"`, uint32 `nVerts`, `nIdx`, `nPolys`, `nRings`, `nPts`, float64 `originX`, `originY` (Lambert-93 de l'origine locale) |
+| Positions | float32 × 3 × `nVerts` : x et y locaux à la dalle (m), z altitude NGF (m) |
+| Indices | uint32 × `nIdx` : triangles déjà découpés, 3 indices chacun. Les faces de sol (GroundSurface) ne sont pas dessinées |
+| Pieds de mur | uint8 × `nVerts` (1 = pied de mur, sommet du sol), complété à un multiple de 4 octets |
+| Emprises | uint32 × `nPolys` : nombre d'anneaux de chaque polygone (le premier est extérieur, les suivants sont des trous) ; uint32 × `nRings` : nombre de points de chaque anneau ; float32 × 2 × `nPts` : x, y locaux, anneaux ouverts |
+
+`parseBld` (`src/js/buildings.js`) refuse un fichier dont la signature, la taille ou les indices sont incohérents, et le module
+ignore un fichier dont l'origine n'est pas celle de la dalle.
+
+**Rendu** (`_startBuildings`, `_maquetteUpdate`) : par dalle, un `bldMesh` à côté de `maqMesh`, de même position, dont le
+matériau partage les objets `uniforms` de la maquette (`mixT`, `exag`, `zRef`, `tTex`, `tInfo`, `oTex`, `useOrtho`,
+`colorMode`, `hagMax`). Vertex shader `_BLD_VS` : un pied de mur prend l'altitude du MNT, les autres sommets vont de l'altitude
+du MNT à celle du toit selon `mixT` (comme le MNS dans la maquette). Fragment `_BLD_FS` : celui de la maquette, avec les murs
+(normale presque horizontale) grisés, et sans le retournement `n.z < 0` pour eux : leur `n.z` vaut 0 au bruit près et
+l'éclairage devenait moucheté (défaut vu sur le banc d'essai).
+**Masquage** : `maskSurface` (`buildings.js`) rastérise les emprises (trous compris) sur la grille du MNS, les élargit d'un
+disque de 1 m (`_BLD_MARGIN`) et renvoie une COPIE du MNS où ces cellules prennent l'altitude du MNT. `surfGrid` reste
+intact (le profil l'utilise) ; la texture est refaite quand la résolution du MNS ou du MNT change, quand les bâtiments arrivent
+et quand la case est cochée ou décochée. Un fichier absent (404) ou invalide laisse la dalle comme sans le réglage.
+
+**Ce que fournit roofer v1.0.0** (observé, y compris sur la dalle réelle) : première ligne `transform` (sans elle, par exemple
+avec `--omit-metadata`, le convertisseur s'arrête) ; `Building` + `BuildingPart` portant un `Solid` de LoD `"2.2"` avec les
+surfaces sémantiques `GroundSurface`, `WallSurface`, `RoofSurface` ; faces à trous (une face de toit réelle en a 10) ; sol plat
+(`rf_h_ground`). Cas rencontrés sur la dalle : 65 bâtiments sans géométrie (`skip`, 4 %), 18 murs d'aire nulle (ignorés), 3
+`BuildingPart` à coque ouverte sans face de sol (écrits sans pieds de mur ni emprise, signalés par le convertisseur, rien n'est
+deviné). Un toit à deux pans n'a pas pu être obtenu sur des données synthétiques (roofer retombe en toit plat) ; les toits
+en pente (`slanted`) viennent de la dalle réelle.
+
+**Limites connues**
+
+- les bâtiments `skip` ne sont pas dans le `.bld` : ils restent en rampes dans le MNS ; la végétation n'est pas traitée ;
+- le sol de roofer est plat : sur une pente, les pieds de mur sont recalés sur le MNT (les murs s'allongent côté aval) ; le
+  rendu sur forte pente n'a pas été examiné de près ;
+- un bâtiment à cheval sur deux dalles appartient à celle qui contient son centre ; il est dessiné en entier, mais la dalle
+  voisine ne le retire pas de son MNS ;
+- le masque dépend de la maille du MNS (1 m puis 0,5 m) : une marge de 1 m peut laisser un liséré de rampe, ou mordre sur un
+  trottoir ;
+- un bâtiment dont l'emprise BD TOPO diffère de la réalité (construction récente ou démolie) est masqué d'après l'emprise ;
+- une requête par dalle (pas de cache hors celui du navigateur) ; 9 dalles ≈ 1,2 million de triangles de bâtiments : mémoire
+  graphique et fluidité non mesurées ;
+- les altitudes de roofer sont celles du nuage (IGN69), comme le MNT : le module ne les recale pas.
 
 ## Navigation 3D
 

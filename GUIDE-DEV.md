@@ -160,8 +160,12 @@ en pente (`slanted`) viennent de la dalle réelle.
 - le masque dépend de la maille du MNS (1 m puis 0,5 m) : un liséré de rampe peut subsister (quelques pointes fines au pied de la
   tour de 38 m malgré la marge variable), ou un trottoir être mordu ;
 - un bâtiment dont l'emprise BD TOPO diffère de la réalité (construction récente ou démolie) est masqué d'après l'emprise ;
-- une requête par dalle (pas de cache hors celui du navigateur) ; 9 dalles ≈ 1,2 million de triangles de bâtiments : mémoire
-  graphique et fluidité non mesurées ;
+- une requête par dalle (pas de cache hors celui du navigateur). Mesuré sur la dalle centrale de Vienne et ses 8 voisines
+  (Node, `maskSurface` à 1 m) : 360 113 triangles de bâtiments au total (128 000 pour la dalle centrale, 16 000 à 48 000 pour
+  les autres), 7,5 Mo de `.bld`, 6,9 Mo de tampons de maillage, lecture 7 ms et masquage 183 ms pour les 9 dalles. Les
+  bâtiments ajoutent environ 6 % de triangles à la maquette (terrain : environ 6 millions pour 9 dalles) et aucune texture
+  de plus (la texture du MNS est remplacée, pas ajoutée) ; la fluidité vient donc surtout de la maquette elle-même. Les
+  images par seconde n'ont été mesurées sur aucune carte graphique ;
 - les altitudes de roofer sont celles du nuage (IGN69), comme le MNT : le module ne les recale pas.
 
 ## Navigation 3D

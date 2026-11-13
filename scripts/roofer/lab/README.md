@@ -5,11 +5,11 @@ dans un vrai GEO. Pipeline et format : [`../README.md`](../README.md) et `GUIDE-
 
 | Fichier | Rôle |
 |---|---|
-| `prepare.sh` | télécharge le nuage LiDAR HD et les emprises BD TOPO de la dalle, lance roofer (Docker), convertit en `bld/0846-6494.bld` |
+| `prepare.sh` | télécharge le nuage LiDAR HD et les emprises BD TOPO d'une ou plusieurs dalles, lance roofer (Docker), convertit en `bld/<dalle>.bld` |
 | `serve.py` | sert `bld/` sur `http://localhost:8777` avec CORS (lecture seule, écoute sur 127.0.0.1) |
 | `work/`, `bld/` | produits, ignorés par git |
 
-Prérequis : `docker`, `curl`, `python3`, ~1 Go d'espace libre, un accès à `data.geopf.fr` et à Docker Hub.
+Prérequis : `docker`, `curl`, `python3`, ~1 Go d'espace libre par dalle (~2 Go pour les 9 dalles), un accès à `data.geopf.fr` et à Docker Hub.
 
 ## 1. Préparer le fichier (une fois, ~2 min + téléchargement de ~290 Mo)
 
@@ -22,6 +22,16 @@ Résultat attendu en fin de script : `environ 1 471 bâtiments et 128 000 triang
 2,7 Mo. Les lignes « ignorés » (bâtiments sans géométrie, murs d'aire nulle) et l'« ATTENTION : 3 bâtiments sans
 GroundSurface » sont normales : voir « Limites » du GUIDE-DEV. Relancer le script ne retélécharge rien ; supprimer `work/`
 pour tout refaire.
+
+Pour essayer le chargement de plusieurs dalles (bouton « Voisines » du module) :
+
+```bash
+./prepare.sh around 0846-6494       # la dalle et ses 8 voisines : ~15 min de roofer et ~2 Go de téléchargement
+./prepare.sh 0846-6494 0847-6494    # ou une liste de dalles « XXXX-YYYY »
+```
+
+Le résultat est dans `bld/` (un fichier par dalle) et le détail dans `work/<dalle>/`. Sur ces 9 dalles : 360 000 triangles de
+bâtiments au total, 7,5 Mo de `.bld`.
 
 ## 2. Lancer le serveur
 
@@ -69,13 +79,29 @@ Ce qu'il faut vérifier, et noter :
 | Relief ×3, texture « Hauteur au sol » / « Grise » | les bâtiments suivent le relief et la texture choisis |
 | Rues en pente | murs sans jour ni enfoncement visible au pied (le sol de roofer est plat, le pied est recalé sur le MNT) |
 | Autour des bâtiments | pas de liséré de rampe gênant ; pas de morsure sur les trottoirs |
-| Fluidité | rotation et zoom sans à-coups (~128 000 triangles de bâtiments) |
+| Fluidité | rotation et zoom sans à-coups (128 000 triangles de bâtiments sur la dalle centrale, 360 000 sur 9 dalles). Mesure : voir « Mesurer la fluidité » |
 | Voisines (bouton « Voisines ») | seules les dalles ayant un `.bld` ont des bâtiments ; les autres restent comme avant, sans message |
 | Profil et courbes | inchangés (le profil utilise le MNS d'origine, non masqué) |
 | `buildingsUrl` vide | pas de case « Bâtiments LoD2 », comportement identique à la 1.1.2 |
 
 Console du navigateur (F12) : un fichier absent ne doit rien afficher ; une erreur affiche une seule ligne
 `[geo-lidar-hd] bâtiments LoD2 de la dalle … ignorés (URL) : …`. Onglet Réseau : un seul `0846-6494.bld` en 200 par dalle.
+
+## Mesurer la fluidité
+
+Avec « Voisines » activé et les 9 `.bld` servis, comparer **Bâtiments LoD2 coché puis décoché**, même vue, même taille de
+panneau. Dans la console du navigateur (F12), coller le script ci-dessous, puis cliquer sur **Animer** aussitôt : l'animation
+force un rendu à chaque image pendant 6 s, et le script compte les images dessinées.
+
+```js
+(function () {
+  var n = 0, t0 = performance.now();
+  (function f(t) { n++; if (t - t0 < 6000) { requestAnimationFrame(f); } else { console.log('images/s :', (n / ((t - t0) / 1000)).toFixed(1)); } })(t0);
+})();
+```
+
+Noter le résultat avec la carte graphique du poste, et l'écart entre case cochée et décochée : il donne le coût des bâtiments,
+indépendamment de celui de la maquette.
 
 ## En cas de problème
 

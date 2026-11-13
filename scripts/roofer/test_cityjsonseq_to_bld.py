@@ -1,4 +1,5 @@
 """Tests du convertisseur : python3 -I -m unittest discover -s scripts/roofer"""
+import json
 import math
 import os
 import struct
@@ -25,12 +26,12 @@ def decode(blob):
 
 
 class Triangulation(unittest.TestCase):
-    def check(self, rings, expected):
+    def check(self, rings, expected, places=6):
         tris, area, degraded = c.triangulate_face(rings)
         coords = {p[0]: p[1:] for r in rings for p in r}
         self.assertFalse(degraded)
-        self.assertAlmostEqual(area, expected, places=6)
-        self.assertAlmostEqual(c.tri_area3d(tris, coords), expected, places=6)
+        self.assertAlmostEqual(area, expected, places=places)
+        self.assertAlmostEqual(c.tri_area3d(tris, coords), expected, places=places)
         return tris
 
     def ring(self, pts, start=0):
@@ -64,6 +65,20 @@ class Triangulation(unittest.TestCase):
 
     def test_collinear_vertices(self):
         self.check([self.ring([(0, 0, 0), (2, 0, 0), (4, 0, 0), (4, 4, 0), (2, 4, 0), (0, 4, 0)])], 16)
+
+    def test_real_face_with_ten_holes(self):
+        # face de toit réelle de roofer (BD TOPO BATIMENT0000000302565022, dalle 0846-6494) : 40 sommets et 10 trous.
+        # Régression : un pont posé sur la mauvaise occurrence d'un sommet déjà relié donnait des triangles hors de la face.
+        with open(os.path.join(FIX, 'face-reelle-10-trous.json'), encoding='utf-8') as fh:
+            rings = [[tuple(p) for p in r] for r in json.load(fh)]
+        self.assertEqual(len(rings), 11)
+        for n in range(1, 11):   # de 1 à 10 trous
+            self.check(rings[:n + 1], c.triangulate_face(rings[:n + 1])[1], places=1)   # toit plan à quelques mm près
+        tris = self.check(rings, 703.6819, places=1)
+        self.assertEqual(len(tris), 118)   # V + 2H - 2 avec V = 98 sommets et H = 10 trous
+
+    def test_consecutive_duplicate_vertices(self):
+        self.check([self.ring([(0, 0, 0), (4, 0, 0), (4, 0, 0), (4, 4, 0), (0, 4, 0), (0, 0, 0)])], 16)
 
     def test_degenerate_face(self):
         self.assertEqual(c.triangulate_face([self.ring([(0, 0, 0), (1, 1, 1), (2, 2, 2)])])[0], [])

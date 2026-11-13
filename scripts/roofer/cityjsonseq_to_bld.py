@@ -76,6 +76,20 @@ def _in_ring(p, ring):
     return inside
 
 
+def _in_wedge(prev, cur, nxt, target):
+    """Le point `target` est-il dans le coin intérieur du sommet `cur` ? Les anneaux ont la matière à gauche du parcours
+    (extérieur antihoraire, trous horaires) ; les sommets sont (id, u, v). Indispensable quand un sommet apparaît
+    plusieurs fois dans l'anneau fusionné (extrémité d'un pont déjà posé) : il faut choisir la bonne occurrence."""
+    def cr(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+    dn = (nxt[1] - cur[1], nxt[2] - cur[2])
+    dp = (prev[1] - cur[1], prev[2] - cur[2])
+    dt = (target[1] - cur[1], target[2] - cur[2])
+    if cr(dn, dp) > 0:   # coin convexe (moins de 180°)
+        return cr(dn, dt) > 0 and cr(dt, dp) > 0
+    return not (cr(dp, dt) >= 0 and cr(dt, dn) >= 0)
+
+
 def _bridge(merged, hole, others):
     """Relie un trou (CW) à l'anneau fusionné (CCW). Les sommets sont (id, u, v). Renvoie l'anneau fusionné.
 
@@ -93,6 +107,9 @@ def _bridge(merged, hole, others):
         for j, h in enumerate(hole):
             d = (m[1] - h[1]) ** 2 + (m[2] - h[2]) ** 2
             if best is not None and d >= best[0]:
+                continue
+            if not _in_wedge(merged[i - 1], m, merged[(i + 1) % len(merged)], h) or \
+                    not _in_wedge(hole[j - 1], h, hole[(j + 1) % len(hole)], m):
                 continue
             a, b = (m[1], m[2]), (h[1], h[2])
             if any(_seg_cross(a, b, (e0[1], e0[2]), (e1[1], e1[2])) for e0, e1 in edges):
@@ -208,7 +225,14 @@ def triangulate_face(rings):
         return (p[1], p[2])
 
     def to2d(ring):
-        return [(p[0],) + proj(p) for p in ring]
+        out = []
+        for p in ring:   # sommets consécutifs confondus (fréquents dans la sortie de roofer) : un seul
+            q = (p[0],) + proj(p)
+            if not out or (out[-1][1], out[-1][2]) != (q[1], q[2]):
+                out.append(q)
+        if len(out) > 1 and (out[0][1], out[0][2]) == (out[-1][1], out[-1][2]):
+            out.pop()
+        return out
 
     o2 = to2d(outer)
     flipped = _area2([(p[1], p[2]) for p in o2]) < 0
@@ -270,7 +294,8 @@ class Stats(object):
         self.no_geometry = 0     # sans géométrie du LoD demandé (ex. extrusion_mode « skip »)
         self.outside = 0         # hors de la dalle (centre hors emprise)
         self.no_ground = 0       # écrits sans sémantique GroundSurface
-        self.bad_faces = 0       # faces dégénérées ou non triangulées
+        self.zero_area = 0       # faces d'aire nulle ignorées (murs à sommets confondus, fréquents dans la sortie de roofer)
+        self.bad_faces = 0       # faces non triangulées alors qu'elles ont une aire (pont vers un trou impossible)
         self.degraded = 0        # faces dont une oreille a été forcée
         self.area_mismatch = 0   # faces dont l'aire triangulée s'écarte de plus de 1 %
         self.other_types = 0     # géométries ni Solid ni MultiSurface
@@ -376,7 +401,11 @@ def _add_geometry(g, name, verts, origin, bbox, pos, idx, foot, polys, st, log):
         rings = [[(i,) + verts[i] for i in r] for r in face]
         tris, area, degraded = triangulate_face(rings)
         if not tris:
-            st.bad_faces += 1
+            if degraded:
+                st.bad_faces += 1
+                log('%s : face non triangulée (trous non reliables)' % name)
+            else:
+                st.zero_area += 1
             continue
         if degraded:
             st.degraded += 1
@@ -444,12 +473,14 @@ def main(argv=None):
         skipped.append('%d hors de la dalle (centre hors emprise)' % st.outside)
     if st.other_types:
         skipped.append('%d géométries ni Solid ni MultiSurface' % st.other_types)
+    if st.zero_area:
+        skipped.append('%d faces d\'aire nulle' % st.zero_area)
     if skipped:
         sys.stderr.write('ignorés : ' + ' ; '.join(skipped) + '\n')
     if st.no_ground:
         sys.stderr.write('ATTENTION : %d bâtiments sans GroundSurface (pas de pied de mur ni d\'emprise)\n' % st.no_ground)
     if st.bad_faces or st.degraded or st.area_mismatch:
-        sys.stderr.write('ATTENTION : faces dégénérées %d, triangulation dégradée %d, aire discordante %d\n'
+        sys.stderr.write('ATTENTION : faces non triangulées %d, triangulation dégradée %d, aire discordante %d\n'
                          % (st.bad_faces, st.degraded, st.area_mismatch))
     return 0
 

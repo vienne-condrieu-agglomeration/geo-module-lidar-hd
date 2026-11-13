@@ -15,7 +15,7 @@
     "build": "webpack --config webpack.worker.config.js && webpack",
     "watch": "webpack --config webpack.worker.config.js && webpack --watch",
     "package": "npm run check:version && npm run build && node scripts/package.js",
-    "test": "npm run check:version && node test/changelog.test.mjs && node test/profile-cadastre.test.mjs && node test/tours.test.mjs && node test/crs.test.mjs && node test/buildings.test.mjs && node test/vegetation.test.mjs",
+    "test": "npm run check:version && node test/changelog.test.mjs && node test/profile-cadastre.test.mjs && node test/tours.test.mjs && node test/crs.test.mjs && node test/buildings.test.mjs && node test/vegetation.test.mjs && node test/city3d.test.mjs",
     "check:version": "node scripts/check-version.js"
   },
   "keywords": [

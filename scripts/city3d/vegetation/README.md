@@ -1,6 +1,6 @@
 # Arbres 3D : pipeline PDAL → `.veg`
 
-Prépare, hors du navigateur, les fichiers `<dalle>.veg` que le module lit quand le réglage `vegetationUrl` est renseigné
+Prépare, hors du navigateur, les fichiers `<dalle>.veg` que le module lit quand le réglage `city3dUrl` est renseigné (sous-dossier `vegetation/`, interrupteur `treesEnabled`)
 (format : `GUIDE-DEV.md`, section « Arbres »). Rien ici n'est exécuté par GEO ni livré dans le ZIP du module.
 
 ```

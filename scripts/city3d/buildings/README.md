@@ -1,6 +1,6 @@
 # Bâtiments LoD2 : pipeline roofer → `.bld`
 
-Prépare, hors du navigateur, les fichiers `<dalle>.bld` que le module lit quand le réglage `buildingsUrl` est renseigné
+Prépare, hors du navigateur, les fichiers `<dalle>.bld` que le module lit quand le réglage `city3dUrl` est renseigné (sous-dossier `buildings/`, interrupteur `buildingsEnabled`)
 (format : `GUIDE-DEV.md`, section « Bâtiments LoD2 »). Rien ici n'est exécuté par GEO ni livré dans le ZIP du module.
 
 ```
@@ -66,7 +66,7 @@ nuage est insuffisant), bâtiments dont le centre est hors de la dalle, et il si
 à celle qui contient son centre et est dessiné en entier.
 
 Publier ensuite les `.bld` à côté les uns des autres sur un serveur de fichiers statiques (CORS ouvert), nommés
-`<dalle>.bld`, et renseigner l'URL du dossier dans le réglage `buildingsUrl` du module.
+`<dalle>.bld`, et renseigner l'URL du dossier parent (celui qui contient `buildings/`) dans le réglage `city3dUrl` du module.
 
 ## Exécution réelle (dalle 0846-6494)
 

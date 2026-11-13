@@ -78,8 +78,9 @@ cette API en dépendance fixe : sans elle, c'est toute l'application qui risque 
 | `lazPerfUrl` | Dossier de `laz-perf.wasm` | jsDelivr |
 | `orthoWmsUrl` | WMS d'orthophotos pour colorer les points (vide = désactivé) | `https://data.geopf.fr/wms-r/wms` |
 | `orthoMaxSize` | Résolution maximale de l'orthophoto (1024 / 2048 / 4096 px) | 4096 |
-| `buildingsUrl` | Dossier des fichiers `<dalle>.bld` (bâtiments LoD2 reconstruits par roofer, prototype : voir `scripts/city3d/buildings/README.md`). Active la case « Bâtiments LoD2 » du panneau Maquette (vide = désactivé, comportement inchangé) | vide |
-| `vegetationUrl` | Dossier des fichiers `<dalle>.veg` (canopée issue des points classés végétation, prototype : voir `scripts/city3d/vegetation/README.md`). Active la case « Arbres » du panneau Maquette : les cônes de la végétation sont remplacés par des arbres en volumes simples (vide = désactivé, comportement inchangé) | vide |
+| `city3dUrl` | Dossier de base des données 3D de la maquette (prototype : voir `scripts/city3d/README.md`) : `<URL>/buildings/<dalle>.bld` (bâtiments LoD2 reconstruits par roofer) et `<URL>/vegetation/<dalle>.veg` (canopée issue des points classés végétation). Active les cases « Bâtiments LoD2 » et « Arbres » du panneau Maquette, selon les deux interrupteurs ci-dessous (vide = désactivé, comportement inchangé) | vide |
+| `buildingsEnabled` | Propose la case « Bâtiments LoD2 » (sans effet si `city3dUrl` est vide) | oui |
+| `treesEnabled` | Propose la case « Arbres » : les cônes de la végétation sont remplacés par des arbres en volumes simples (sans effet si `city3dUrl` est vide) | oui |
 | `crsList` | Projections proposées (pointage, export du terrain, DXF 3D du profil), séparées par des virgules. La première est le choix par défaut. Codes acceptés : `EPSG:2154`, `EPSG:3942` à `EPSG:3950`, `EPSG:4326` | toutes, Lambert-93 en tête |
 | `toolName` | Libellé de l'onglet | LiDAR HD |
 

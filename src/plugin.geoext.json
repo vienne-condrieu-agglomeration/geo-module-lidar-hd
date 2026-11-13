@@ -103,21 +103,30 @@
         },
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
-          "name": "URL des bâtiments LoD2 (prototype)",
-          "description": "Dossier de fichiers statiques <dalle>.bld (ex. 0846-6494.bld) contenant les bâtiments LoD2 reconstruits par roofer, produits par scripts/city3d/buildings du module. Active la case « Bâtiments LoD2 » du panneau Maquette : ils sont superposés à la maquette et retirés du MNS. Doit autoriser le CORS. Laisser vide pour désactiver la fonction (comportement inchangé) ; une dalle sans fichier reste inchangée.",
-          "key": "buildingsUrl",
+          "name": "URL des données 3D de la ville (prototype)",
+          "description": "Dossier de base de fichiers statiques pour la maquette : <URL>/buildings/<dalle>.bld (bâtiments LoD2 reconstruits par roofer) et <URL>/vegetation/<dalle>.veg (canopée issue des points classés végétation), produits par scripts/city3d du module. Active, dans le panneau Maquette, les cases « Bâtiments LoD2 » et « Arbres » (selon les deux interrupteurs ci-dessous) : les bâtiments et les arbres reconstruits remplacent les rampes du MNS. Doit autoriser le CORS. Laisser vide pour désactiver la fonction (comportement inchangé) ; une dalle sans fichier reste inchangée.",
+          "key": "city3dUrl",
           "required": false,
           "type": "STRING",
           "defaultValue": ""
         },
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
-          "name": "URL de la végétation 3D (prototype)",
-          "description": "Dossier de fichiers statiques <dalle>.veg (ex. 0846-6494.veg) contenant la canopée issue des points classés végétation du LiDAR HD, produits par scripts/city3d/vegetation du module. Active la case « Arbres » du panneau Maquette : les cônes de la végétation du MNS sont remplacés par des arbres en volumes simples (houppier et tronc). Doit autoriser le CORS. Laisser vide pour désactiver la fonction (comportement inchangé) ; une dalle sans fichier reste inchangée.",
-          "key": "vegetationUrl",
+          "name": "Activer les bâtiments LoD2",
+          "description": "Propose la case « Bâtiments LoD2 » du panneau Maquette (fichiers <URL des données 3D>/buildings/<dalle>.bld). Sans effet si l'URL des données 3D est vide.",
+          "key": "buildingsEnabled",
           "required": false,
-          "type": "STRING",
-          "defaultValue": ""
+          "type": "BOOLEAN",
+          "defaultValue": true
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Activer les arbres 3D",
+          "description": "Propose la case « Arbres » du panneau Maquette (fichiers <URL des données 3D>/vegetation/<dalle>.veg) : les cônes de la végétation du MNS sont remplacés par des arbres en volumes simples. Sans effet si l'URL des données 3D est vide.",
+          "key": "treesEnabled",
+          "required": false,
+          "type": "BOOLEAN",
+          "defaultValue": true
         }
       ]
     },

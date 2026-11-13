@@ -17,12 +17,12 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 - Maquette : des bâtiments reconstruits en 3D (LoD2, toits en pente et murs droits) peuvent remplacer les bâtiments bruités
   du MNS. Une case « Bâtiments LoD2 » apparaît dans le panneau Maquette quand l'administrateur a renseigné le réglage
-  « URL des bâtiments LoD2 » ; elle est absente sinon, et le module se comporte comme avant. Les bâtiments suivent le
+  « URL des données 3D de la ville » et laissé activé « Activer les bâtiments LoD2 » ; elle est absente sinon, et le module se comporte comme avant. Les bâtiments suivent le
   curseur (du terrain nu à la surface), le relief et « Animer ». Les murs sont gris, les toits portent l'orthophoto.
   Fonction en prototype : les fichiers se préparent hors du module (documentation du dépôt), une dalle sans fichier
   reste inchangée, et les bâtiments qu'on ne sait pas reconstruire restent tels que dans le MNS
 - Maquette : les arbres peuvent remplacer les cônes de la végétation du MNS. Une case « Arbres » apparaît dans le panneau Maquette
-  quand l'administrateur a renseigné le réglage « URL de la végétation 3D » ; elle est absente sinon, et le module se comporte comme
+  quand l'administrateur a renseigné le réglage « URL des données 3D de la ville » et laissé activé « Activer les arbres 3D » ; elle est absente sinon, et le module se comporte comme
   avant. Chaque arbre est un houppier arrondi sur un tronc, posé au sol, à la couleur de l'orthophoto ; les arbres suivent le curseur
   (ils poussent du terrain nu à la surface), le relief et « Animer ». Les arbres viennent des points classés « végétation » du
   LiDAR HD, préparés hors du module (documentation du dépôt). Fonction en prototype : les formes sont des volumes simples, sans

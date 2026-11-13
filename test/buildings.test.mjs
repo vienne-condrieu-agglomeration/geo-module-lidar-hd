@@ -147,13 +147,19 @@ for (const size of [1000, 2000]) {
 const ext = readFileSync(fileURLToPath(new URL('../src/js/extension.js', import.meta.url)), 'utf8');
 const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../src/plugin.geoext.json', import.meta.url)), 'utf8'));
 const settings = manifest.configuration.flatMap((g) => g.elements);
-const bldSetting = settings.find((e) => e.key === 'buildingsUrl');
-assert.ok(bldSetting && bldSetting.defaultValue === '' && !bldSetting.required, 'réglage buildingsUrl : vide par défaut = désactivé');
+const urlSetting = settings.find((e) => e.key === 'city3dUrl');
+assert.ok(urlSetting && urlSetting.defaultValue === '' && !urlSetting.required && urlSetting.type === 'STRING', 'réglage city3dUrl : vide par défaut = tout désactivé');
+for (const key of ['buildingsEnabled', 'treesEnabled']) {
+    const sw = settings.find((e) => e.key === key);
+    assert.ok(sw && sw.type === 'BOOLEAN' && sw.defaultValue === true && !sw.required, 'interrupteur ' + key + ' : booléen activé par défaut');
+}
+assert.ok(!settings.some((e) => e.key === 'buildingsUrl' || e.key === 'vegetationUrl'), 'anciens réglages supprimés');
 // le fragment shader des bâtiments est dérivé de celui de la maquette par remplacement de ces deux lignes : si elles changent, les murs ne seraient plus adaptés
 assert.ok(ext.includes("'    if (n.z < 0.0) { n = -n; }',") && ext.includes("'    float l = clamp(dot(n, normalize(vec3(-0.45, 0.55, 0.70))), 0.0, 1.0);',"), 'ancres du shader de la maquette');
 // sans réglage, rien ne doit se charger ni se masquer
 assert.ok(ext.includes("var wantBld = !!(_buildingsUrl && m.buildings);"));
-assert.ok(ext.includes('ng-if=\\"bldEnabled\\"') || ext.includes('ng-if="bldEnabled"'), 'case visible seulement si buildingsUrl est réglé');
+assert.ok(ext.includes('var urls3d = city3dUrls(props);'), 'les URLs viennent de city3dUrls');
+assert.ok(ext.includes('ng-if=\\"bldEnabled\\"') || ext.includes('ng-if="bldEnabled"'), 'case visible seulement si city3dUrl est réglé et buildingsEnabled non décoché');
 assert.ok(/t\.bldMesh\.geometry\.dispose\(\); t\.bldMesh\.material\.dispose\(\)/.test(ext), 'bldMesh détruit avec sa dalle');
 
 // --- la fausse donnée du dépôt est à jour avec le convertisseur Python (ignoré sans python3) ---

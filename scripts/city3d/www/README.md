@@ -2,7 +2,7 @@
 
 Prépare les fichiers de bâtiments (`.bld`) et de végétation (`.veg`) d'une ou plusieurs dalles et les sert en local avec CORS,
 pour essayer les cases « Bâtiments LoD2 » et « Arbres » de la maquette dans un vrai GEO. Les deux fonctions ont chacune leur
-préparation, leur dossier servi et leur URL ; elles ne se mélangent pas.
+préparation et leur dossier servi, mais un seul réglage de base dans le Générateur : `city3dUrl` = `http://localhost:8777`.
 
 | | Bâtiments LoD2 | Arbres 3D |
 |---|---|---|
@@ -10,7 +10,8 @@ préparation, leur dossier servi et leur URL ; elles ne se mélangent pas.
 | Script | `prepare-buildings.sh` | `prepare-vegetation.sh` |
 | Pipeline et format | [`../buildings/README.md`](../buildings/README.md), `GUIDE-DEV.md` « Bâtiments LoD2 » | [`../vegetation/README.md`](../vegetation/README.md), `GUIDE-DEV.md` « Arbres » |
 | Fichiers servis | `served/buildings/<dalle>.bld` | `served/vegetation/<dalle>.veg` |
-| Réglage du Générateur | `buildingsUrl` = `http://localhost:8777/buildings` | `vegetationUrl` = `http://localhost:8777/vegetation` |
+| Dossier servi | `served/buildings/` | `served/vegetation/` |
+| Interrupteur du Générateur | `buildingsEnabled` | `treesEnabled` |
 
 ## Contenu du dossier
 
@@ -60,7 +61,7 @@ GUIDE-DEV. Sur les 9 dalles de Vienne centre : 360 000 triangles de bâtiments (
 python3 -I serve.py            # port 8777 ; un autre port : python3 -I serve.py 9000
 ```
 
-Le terminal affiche, pour chaque sous-dossier, le nombre de fichiers et le réglage à saisir. Le laisser ouvert pendant l'essai.
+Le terminal affiche le nombre de fichiers de chaque sous-dossier et l'URL de base à saisir. Le laisser ouvert pendant l'essai.
 Contrôle depuis un autre terminal :
 
 ```bash
@@ -76,9 +77,9 @@ npm run package                # build + ZIP daté
 ```
 
 1. Générateur GEO, **ancienne interface** : Modules > + Module, importer le ZIP (nom daté, un ZIP déjà importé est refusé).
-2. Dans la configuration du module, groupe « Données LiDAR HD », renseigner, selon ce que l'on essaie :
-   - **URL des bâtiments LoD2 (prototype)** : `http://localhost:8777/buildings` (sans `/` final) ;
-   - **URL de la végétation 3D (prototype)** : `http://localhost:8777/vegetation`.
+2. Dans la configuration du module, groupe « Données LiDAR HD », renseigner **URL des données 3D de la ville (prototype)** :
+   `http://localhost:8777` (sans `/` final). Les interrupteurs **Activer les bâtiments LoD2** et **Activer les arbres 3D** sont cochés
+   par défaut ; décocher celui d'une fonction que l'on ne veut pas essayer.
 3. Enregistrer et republier l'application.
 
 Le navigateur qui ouvre GEO doit tourner **sur la machine où tourne `serve.py`** (`localhost` désigne le poste du navigateur).
@@ -107,7 +108,7 @@ Ce qu'il faut vérifier, et noter :
 | Fluidité | rotation et zoom sans à-coups. Mesure : voir « Mesurer la fluidité » |
 | Voisines (bouton « Voisines ») | seules les dalles ayant un fichier ont des bâtiments ou des arbres ; les autres restent comme avant, sans message |
 | Profil et courbes | inchangés (le profil utilise le MNS d'origine, non masqué) |
-| Réglage vide | pas de case correspondante, comportement identique à la 1.1.2 |
+| URL de base vide, ou interrupteur décoché | pas de case correspondante, comportement identique à la 1.1.2 |
 
 Console du navigateur (F12) : un fichier absent ne doit rien afficher ; une erreur affiche une seule ligne
 `[geo-lidar-hd] bâtiments LoD2 de la dalle … ignorés (URL) : …` ou `[geo-lidar-hd] arbres de la dalle … ignorés (URL) : …`.
@@ -134,8 +135,8 @@ seconde cochée contre 58,1 décochée ; non mesuré avec les arbres.
 
 | Symptôme | Piste |
 |---|---|
-| Pas de case « Bâtiments LoD2 » ou « Arbres » | réglage vide ou ZIP ancien non remplacé ; republier l'application |
-| Case présente, rien ne change, console « ignorés … Failed to fetch » | serveur arrêté, mauvaise URL (vérifier `/buildings` ou `/vegetation`), ou navigateur sur une autre machine |
+| Pas de case « Bâtiments LoD2 » ou « Arbres » | URL de base vide, interrupteur décoché, ou ZIP ancien non remplacé ; republier l'application |
+| Case présente, rien ne change, console « ignorés … Failed to fetch » | serveur arrêté, mauvaise URL (la base doit contenir `buildings/` et `vegetation/`), ou navigateur sur une autre machine |
 | « … ignorés … origine … au lieu de … » | fichier produit pour une autre dalle que son nom |
 | Murs mouchetés, bâtiments décalés, arbres mal placés | noter la capture et le niveau de zoom : défaut du rendu à corriger |
 | `prepare-buildings.sh` : « réponse WFS tronquée » | le WFS a plafonné le nombre d'objets : paginer, voir `../buildings/README.md` |

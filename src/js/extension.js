@@ -16,6 +16,7 @@ import workerSource from '../../build/las-worker.js';
 import { createRasterReader } from './raster.js';
 import { parseBld, maskSurface } from './buildings.js';
 import { parseVeg, detectTrees, removeCanopy } from './vegetation.js';
+import { city3dUrls } from './city3d.js';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TOURS, MAP_TARGET } from './tours.js';
@@ -158,11 +159,11 @@ angular
         });
         var _orthoWmsUrl = 'https://data.geopf.fr/wms-r/wms';   // vide = pas de coloration par orthophoto
         var _orthoMaxSize = 4096;                               // résolution maximale de l'orthophoto (px)
-        var _buildingsUrl = '';                                 // dossier des fichiers <dalle>.bld (bâtiments LoD2) ; vide = désactivé
+        var _buildingsUrl = '';                                 // dossier des <dalle>.bld = <city3dUrl>/buildings si buildingsEnabled ; vide = désactivé
         // Marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS : 1 m, puis 0,1 m par mètre de hauteur au-delà
         // de 12 m, au plus 3 m (les grands bâtiments dépassent plus leur emprise BD TOPO ; voir marginFor dans buildings.js).
         var _BLD_MARGIN   = { base: 1, from: 12, perMeter: 0.1, cap: 3 };
-        var _vegetationUrl = '';                                // dossier des fichiers <dalle>.veg (arbres 3D) ; vide = désactivé
+        var _vegetationUrl = '';                                // dossier des <dalle>.veg = <city3dUrl>/vegetation si treesEnabled ; vide = désactivé
 
         var _WFS_TYPENAME = 'IGNF_LIDAR-HD_METADONNEE:metadata';
         // Demi-largeurs proposées pour le couloir du profil (m) : de 20 cm à 50 m d'épaisseur.
@@ -213,8 +214,9 @@ angular
                 if (props.orthoWmsUrl !== undefined && props.orthoWmsUrl !== null) {
                     _orthoWmsUrl = String(props.orthoWmsUrl).trim();
                 }
-                if (props.buildingsUrl) { _buildingsUrl = String(props.buildingsUrl).trim().replace(/\/+$/, ''); }
-                if (props.vegetationUrl) { _vegetationUrl = String(props.vegetationUrl).trim().replace(/\/+$/, ''); }
+                // Données 3D de la ville : un dossier de base (city3dUrl) et un interrupteur par fonction (voir city3d.js).
+                var urls3d = city3dUrls(props);
+                _buildingsUrl = urls3d.buildings; _vegetationUrl = urls3d.vegetation;
             }
             if (!_registered) {
                 _registered = true;
@@ -755,8 +757,8 @@ angular
                 $scope.mntRes = _MNT_RES;
                 // Maquette 3D : t = curseur terrain nu (0) -> surface (100), exag = exagération verticale
                 $scope.maq = { on: false, touched: false, t: 100, exag: 1, color: 'ortho', points: false, buildings: true, trees: true, anim: false, state: 'idle' };
-                $scope.vegEnabled = !!_vegetationUrl;   // la case « Arbres » n'existe que si le réglage vegetationUrl est renseigné
-                $scope.bldEnabled = !!_buildingsUrl;   // la case « Bâtiments LoD2 » n'existe que si le réglage buildingsUrl est renseigné
+                $scope.vegEnabled = !!_vegetationUrl;   // la case « Arbres » n'existe que si city3dUrl est renseigné et treesEnabled non décoché
+                $scope.bldEnabled = !!_buildingsUrl;   // la case « Bâtiments LoD2 » n'existe que si city3dUrl est renseigné et buildingsEnabled non décoché
                 $scope.mntPts = { classes: { 2: true }, thin: 1 };   // sol seul par défaut
                 $scope.mntCad = { on: false, parcelles: true, batiments: true, sections: false, numeros: true, lift: false, liftM: 10 };
                 $scope.mntOrtho = { on: false, res: 0.2 };
@@ -1675,7 +1677,7 @@ angular
             });
         }
 
-        // Bâtiments LoD2 de la dalle (<buildingsUrl>/<dalle>.bld), lus une fois quand la maquette les demande. Fichier absent
+        // Bâtiments LoD2 de la dalle (<city3dUrl>/buildings/<dalle>.bld), lus une fois quand la maquette les demande. Fichier absent
         // (404) : silence, la dalle reste comme sans le réglage. Les autres échecs sont signalés une fois dans la console.
         function _startBuildings(tile, seq) {
             tile.bldLoading = true;
@@ -1700,7 +1702,7 @@ angular
             });
         }
 
-        // Canopée de la dalle (<vegetationUrl>/<dalle>.veg), lue une fois quand la maquette la demande. Même règle que pour les
+        // Canopée de la dalle (<city3dUrl>/vegetation/<dalle>.veg), lue une fois quand la maquette la demande. Même règle que pour les
         // bâtiments : fichier absent (404) = silence, autre échec = une ligne dans la console, la dalle reste comme avant.
         function _startVegetation(tile, seq) {
             tile.vegLoading = true;

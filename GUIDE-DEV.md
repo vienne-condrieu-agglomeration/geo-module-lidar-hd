@@ -104,9 +104,9 @@ fond clair/sombre, visibilité par classe).
 
 ## Bâtiments LoD2
 
-Prototype. La maquette (MNT + MNS) rend les bâtiments en rampes bruitées. Avec le réglage `buildingsUrl`, le module
-superpose des bâtiments reconstruits par [roofer](https://github.com/3DBAG/roofer) (3DBAG), lus dans des fichiers statiques
-`<dalle>.bld`, et retire les bâtiments du MNS. Sans le réglage, rien n'est chargé ni modifié.
+Prototype. La maquette (MNT + MNS) rend les bâtiments en rampes bruitées. Avec le réglage `city3dUrl` (dossier de base) et l'interrupteur
+`buildingsEnabled` (activé par défaut), le module superpose des bâtiments reconstruits par [roofer](https://github.com/3DBAG/roofer) (3DBAG), lus dans des fichiers statiques
+`<city3dUrl>/buildings/<dalle>.bld`, et retire les bâtiments du MNS. Sans le réglage, rien n'est chargé ni modifié.
 
 **Pipeline** (hors navigateur, `scripts/city3d/buildings/README.md`) : nuage LiDAR HD (COPC) + emprises BD TOPO → roofer (Docker,
 `3dgi/roofer:v1.0.0`) → CityJSONSeq → `scripts/city3d/buildings/cityjsonseq_to_bld.py` → un `.bld` par dalle. Mesuré sur la dalle
@@ -171,10 +171,12 @@ en pente (`slanted`) viennent de la dalle réelle.
 
 ## Arbres
 
-Prototype. La végétation du MNS est dessinée en cônes bruités. Avec le réglage `vegetationUrl`, le module lit pour chaque dalle un
-fichier `<dalle>.veg` (la canopée issue des points classés végétation du LiDAR HD), repère les arbres, retire la végétation de la copie
+Prototype. La végétation du MNS est dessinée en cônes bruités. Avec le réglage `city3dUrl` et l'interrupteur `treesEnabled`
+(activé par défaut), le module lit pour chaque dalle un fichier `<city3dUrl>/vegetation/<dalle>.veg` (la canopée issue des points classés végétation du LiDAR HD), repère les arbres, retire la végétation de la copie
 du MNS et dessine à la place un houppier et un tronc par arbre. Sans le réglage, rien n'est chargé ni modifié. La case « Arbres » du
-panneau Maquette n'existe que si le réglage est renseigné.
+panneau Maquette n'existe que si `city3dUrl` est renseigné et `treesEnabled` non décoché (idem « Bâtiments LoD2 » avec `buildingsEnabled`).
+Un seul dossier de base sert les deux fonctions, avec un sous-dossier chacune : `buildings/` et `vegetation/` (`city3dUrls` dans
+`src/js/city3d.js`, testée par `test/city3d.test.mjs` : base vide ou interrupteur décoché = fonction désactivée, interrupteur absent = activé).
 
 **Pipeline** (hors navigateur, `scripts/city3d/vegetation/README.md`) : nuage COPC → PDAL (Docker, deux passes) → deux grilles de 1 m →
 `scripts/city3d/vegetation/pack_veg.py` → un `.veg` par dalle (`scripts/city3d/www` enchaîne les étapes et sert les fichiers pour un essai local). Mesuré sur la dalle 0846-6494 : ~13 s par passe PDAL, 923 Ko par `.veg`.

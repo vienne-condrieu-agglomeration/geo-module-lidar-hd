@@ -100,11 +100,8 @@ if (py.status === 0) {
 }
 // --- branchement dans le module (lecture du source : extension.js dépend du navigateur) ---
 const ext = readFileSync(fileURLToPath(new URL('../src/js/extension.js', import.meta.url)), 'utf8');
-const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../src/plugin.geoext.json', import.meta.url)), 'utf8'));
-const vegSetting = manifest.configuration.flatMap((g) => g.elements).find((e) => e.key === 'vegetationUrl');
-assert.ok(vegSetting && vegSetting.defaultValue === '' && !vegSetting.required, 'réglage vegetationUrl : vide par défaut = désactivé');
 assert.ok(ext.includes('var wantVeg = !!(_vegetationUrl && m.trees);'), 'sans réglage, rien ne se charge');
-assert.ok(ext.includes('ng-if=\\"vegEnabled\\"') || ext.includes('ng-if="vegEnabled"'), 'case Arbres visible seulement si vegetationUrl est réglé');
+assert.ok(ext.includes('ng-if=\\"vegEnabled\\"') || ext.includes('ng-if="vegEnabled"'), 'case Arbres visible seulement si city3dUrl est réglé et treesEnabled non décoché');
 assert.ok(/function _disposeTrees\(t\)[\s\S]*im\.geometry\.dispose\(\); im\.material\.dispose\(\); im\.dispose\(\);/.test(ext), 'arbres détruits avec leur dalle');
 assert.ok(/_disposeTrees\(t\);\s*t\.veg = null; t\.treeData = null;/.test(ext), '_disposeTile libère les arbres');
 // le vertex shader des arbres est dérivé de celui de la maquette : il faut que ses ancres existent

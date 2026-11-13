@@ -263,6 +263,28 @@ def triangulate_face(rings):
     return tris, area, degraded
 
 
+def triangulation_error(rings, tris):
+    """Erreur relative de la triangulation d'une face : écart entre l'aire du polygone et la somme de celle des triangles, toutes
+    deux projetées dans le plan de la triangulation. Exacte (nulle) pour n'importe quelle triangulation correcte, que la face soit
+    plane ou gauchie ; grande si des triangles sortent du polygone ou s'il en manque. rings : comme triangulate_face."""
+    nx, ny, nz = _newell([p[1:] for p in rings[0]])
+    mags = [abs(nx), abs(ny), abs(nz)]
+    k = mags.index(max(mags))
+    if mags[k] < 1e-9:
+        return 0.0
+    def proj(p):
+        return (p[2], p[3]) if k == 0 else ((p[3], p[1]) if k == 1 else (p[1], p[2]))
+    polygon = abs(_area2([proj(p) for p in rings[0]])) / 2.0
+    for h in rings[1:]:
+        if len(h) >= 3:
+            polygon -= abs(_area2([proj(p) for p in h])) / 2.0
+    xy = {p[0]: proj(p) for r in rings for p in r}
+    got = 0.0
+    for a, b, c in tris:
+        got += abs(_area2([xy[a], xy[b], xy[c]])) / 2.0
+    return abs(got - polygon) / polygon if polygon > 1e-12 else 0.0
+
+
 def tri_area3d(tris, coords):
     """Somme des aires 3D des triangles (coords : id -> (x, y, z))."""
     s = 0.0
@@ -409,11 +431,10 @@ def _add_geometry(g, name, verts, origin, bbox, pos, idx, foot, polys, st, log):
             continue
         if degraded:
             st.degraded += 1
-        coords = {i: verts[i] for r in face for i in r}
-        got = tri_area3d(tris, coords)
-        if area > 0 and abs(got - area) > 0.01 * area:
+        err = triangulation_error(rings, tris)
+        if err > 0.01:
             st.area_mismatch += 1
-            log('%s : face triangulée avec une aire %.3f m² au lieu de %.3f m²' % (name, got, area))
+            log('%s : face triangulée avec une aire projetée écartée de %.1f %% de celle du polygone' % (name, 100 * err))
         for a, b, c in tris:
             idx.extend((vid(a), vid(b), vid(c)))
     for face in ground:

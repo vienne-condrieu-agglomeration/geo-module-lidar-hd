@@ -1,4 +1,4 @@
-# Fonctions communes à prepare.sh (bâtiments) et prepare-veg.sh (végétation). À sourcer, pas à lancer.
+# Fonctions communes à prepare-buildings.sh et prepare-vegetation.sh. À sourcer, pas à lancer.
 
 WFS_TILES="https://data.geopf.fr/wfs/ows"
 

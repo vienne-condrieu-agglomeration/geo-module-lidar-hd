@@ -1,4 +1,4 @@
-"""Tests du convertisseur : python3 -I -m unittest discover -s scripts/roofer"""
+"""Tests du convertisseur : python3 -I -m unittest discover -s scripts/city3d/buildings"""
 import json
 import math
 import os
@@ -8,7 +8,7 @@ import unittest
 import cityjsonseq_to_bld as c
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FIX = os.path.join(HERE, '..', '..', 'test', 'fixtures')
+FIX = os.path.join(HERE, '..', '..', '..', 'test', 'fixtures')
 
 
 def decode(blob):
@@ -76,6 +76,31 @@ class Triangulation(unittest.TestCase):
             self.check(rings[:n + 1], c.triangulate_face(rings[:n + 1])[1], places=1)   # toit plan à quelques mm près
         tris = self.check(rings, 703.6819, places=1)
         self.assertEqual(len(tris), 118)   # V + 2H - 2 avec V = 98 sommets et H = 10 trous
+
+    def test_warped_real_face_is_not_a_false_alarm(self):
+        # toit réel de roofer (BATIMENT0000000302565222, dalle 0846-6494) dont un sommet est 0,77 m plus bas que les autres : face
+        # gauchie. L'aire 3D des triangles dépasse alors celle de Newell (5,4 contre 4,3 m²) sans que la triangulation soit fausse.
+        ring = [(0, 846386.84, 6493942.04, 171.711), (1, 846386.327, 6493941.127, 171.567), (2, 846384.813, 6493940.334, 171.322),
+                (3, 846385.866, 6493938.824, 171.298), (4, 846387.821, 6493940.459, 171.673), (5, 846387.718, 6493940.626, 170.908)]
+        tris, area, degraded = c.triangulate_face([ring])
+        self.assertFalse(degraded)
+        self.assertEqual(len(tris), 4)
+        self.assertLess(c.triangulation_error([ring], tris), 1e-9)
+        coords = {p[0]: p[1:] for p in ring}
+        self.assertGreater(c.tri_area3d(tris, coords), 1.2 * area)   # c'est bien l'écart que l'ancien contrôle prenait pour une erreur
+
+    def test_triangulation_error_detects_bad_triangles(self):
+        ring = self.ring([(0, 0, 0), (10, 0, 0), (10, 10, 0), (0, 10, 0)])
+        good, _, _ = c.triangulate_face([ring])
+        self.assertLess(c.triangulation_error([ring], good), 1e-9)
+        self.assertGreater(c.triangulation_error([ring], good[:1]), 0.4)                       # un triangle manque
+        self.assertGreater(c.triangulation_error([ring], good + [(0, 1, 2)]), 0.2)             # un triangle en trop
+        outer = self.ring([(0, 0, 0), (10, 0, 0), (10, 10, 0), (0, 10, 0)])
+        hole = self.ring([(3, 3, 0), (3, 7, 0), (7, 7, 0), (7, 3, 0)], 4)
+        tris, _, _ = c.triangulate_face([outer, hole])
+        self.assertLess(c.triangulation_error([outer, hole], tris), 1e-9)
+        full, _, _ = c.triangulate_face([outer])
+        self.assertGreater(c.triangulation_error([outer, hole], full), 0.1)                    # triangles qui recouvrent le trou : écart net
 
     def test_consecutive_duplicate_vertices(self):
         self.check([self.ring([(0, 0, 0), (4, 0, 0), (4, 0, 0), (4, 4, 0), (0, 4, 0), (0, 0, 0)])], 16)

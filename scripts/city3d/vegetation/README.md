@@ -16,12 +16,12 @@ disque. Testée le 2026-11-13 ; le tag `latest` change, d'où l'empreinte.
 
 ## En pratique
 
-Le plus simple : `scripts/roofer/lab/prepare-veg.sh` (voir `scripts/roofer/lab/README.md`), qui télécharge le nuage de la dalle si
+Le plus simple : `scripts/city3d/www/prepare-vegetation.sh` (voir `scripts/city3d/www/README.md`), qui télécharge le nuage de la dalle si
 besoin, lance les deux passes PDAL et empaquette :
 
 ```bash
-cd scripts/roofer/lab
-./prepare-veg.sh around 0846-6494      # la dalle et ses 8 voisines ; ~30 s de PDAL par dalle (le COPC est partagé avec prepare.sh)
+cd scripts/city3d/www
+./prepare-vegetation.sh around 0846-6494   # la dalle et ses 8 voisines ; ~30 s de PDAL par dalle (le COPC est partagé avec prepare-buildings.sh)
 ```
 
 À la main, pour une dalle (ex. 0846-6494, coin nord-ouest en km Lambert-93 : x 846000-847000, y 6493000-6494000) :
@@ -65,8 +65,8 @@ PDAL n'accepte qu'un écrivain par pipeline (« Pipeline has multiple leaf nodes
 ## Tests
 
 ```bash
-python3 -I -m unittest discover -s scripts/vegetation      # depuis la racine du module
-python3 -I scripts/vegetation/make_fake_veg.py test/fixtures/fake.veg      # régénère le faux fichier de test
+python3 -I -m unittest discover -s scripts/city3d/vegetation      # depuis la racine du module
+python3 -I scripts/city3d/vegetation/make_fake_veg.py test/fixtures/fake.veg      # régénère le faux fichier de test
 ```
 
 `test/fixtures/fake.veg` est un **faux** fichier (3 arbres, une haie, une pelouse sur 64 x 64 m), pas une vraie sortie de PDAL.

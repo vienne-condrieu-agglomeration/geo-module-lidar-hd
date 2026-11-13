@@ -1,4 +1,4 @@
-"""Tests de l'empaquetage .veg : python3 -I -m unittest discover -s scripts/vegetation"""
+"""Tests de l'empaquetage .veg : python3 -I -m unittest discover -s scripts/city3d/vegetation"""
 import os
 import struct
 import tempfile

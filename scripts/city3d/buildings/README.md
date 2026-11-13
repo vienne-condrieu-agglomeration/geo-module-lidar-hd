@@ -57,7 +57,7 @@ Liste complète des options : `docker run --rm 3dgi/roofer:v1.0.0 --help-all` ; 
 ## 3. Conversion
 
 ```bash
-python3 -I ../scripts/roofer/cityjsonseq_to_bld.py out/*.city.jsonl --tile 0846-6494 -o 0846-6494.bld
+python3 -I ../scripts/city3d/buildings/cityjsonseq_to_bld.py out/*.city.jsonl --tile 0846-6494 -o 0846-6494.bld
 ```
 
 Le script (bibliothèque standard seulement) dit ce qu'il ignore : bâtiments sans géométrie (roofer écrit `skip` quand le
@@ -88,9 +88,9 @@ Conversion : 1 471 bâtiments, 128 033 triangles, 1 468 emprises, `.bld` de 2,7 
 ## Tests
 
 ```bash
-python3 -I -m unittest discover -s scripts/roofer      # depuis la racine du module
-python3 -I scripts/roofer/make_fake_cityjsonseq.py test/fixtures/fake.city.jsonl      # régénère la fausse sortie
-python3 -I scripts/roofer/cityjsonseq_to_bld.py test/fixtures/fake.city.jsonl --tile 0846-6494 -o test/fixtures/fake.bld
+python3 -I -m unittest discover -s scripts/city3d/buildings      # depuis la racine du module
+python3 -I scripts/city3d/buildings/make_fake_cityjsonseq.py test/fixtures/fake.city.jsonl      # régénère la fausse sortie
+python3 -I scripts/city3d/buildings/cityjsonseq_to_bld.py test/fixtures/fake.city.jsonl --tile 0846-6494 -o test/fixtures/fake.bld
 ```
 
 `test/fixtures/` contient :

@@ -86,13 +86,13 @@ for (const size of [64, 128]) {
 
 // --- le faux fichier du dépôt est à jour avec le script Python (comparaison des valeurs décompressées ; ignoré sans python3) ---
 const out = fixture('../../node_modules/.fake-check.veg');
-const py = spawnSync('python3', ['-I', fixture('../../scripts/vegetation/make_fake_veg.py'), out], { encoding: 'utf8' });
+const py = spawnSync('python3', ['-I', fixture('../../scripts/city3d/vegetation/make_fake_veg.py'), out], { encoding: 'utf8' });
 if (py.status === 0) {
     const fresh = await parseVeg((() => { const b = readFileSync(out); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); })());
     for (let band = 0; band < 2; band++) {
         for (let k = 0; k < 64 * 64; k++) {
             const a = veg.z(band, k), b = fresh.z(band, k);
-            assert.ok((Number.isNaN(a) && Number.isNaN(b)) || a === b, 'test/fixtures/fake.veg périmé : relancer scripts/vegetation/make_fake_veg.py');
+            assert.ok((Number.isNaN(a) && Number.isNaN(b)) || a === b, 'test/fixtures/fake.veg périmé : relancer scripts/city3d/vegetation/make_fake_veg.py');
         }
     }
 } else {

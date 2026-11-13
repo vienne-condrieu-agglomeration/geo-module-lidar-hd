@@ -108,8 +108,8 @@ Prototype. La maquette (MNT + MNS) rend les bâtiments en rampes bruitées. Avec
 superpose des bâtiments reconstruits par [roofer](https://github.com/3DBAG/roofer) (3DBAG), lus dans des fichiers statiques
 `<dalle>.bld`, et retire les bâtiments du MNS. Sans le réglage, rien n'est chargé ni modifié.
 
-**Pipeline** (hors navigateur, `scripts/roofer/README.md`) : nuage LiDAR HD (COPC) + emprises BD TOPO → roofer (Docker,
-`3dgi/roofer:v1.0.0`) → CityJSONSeq → `scripts/roofer/cityjsonseq_to_bld.py` → un `.bld` par dalle. Mesuré sur la dalle
+**Pipeline** (hors navigateur, `scripts/city3d/buildings/README.md`) : nuage LiDAR HD (COPC) + emprises BD TOPO → roofer (Docker,
+`3dgi/roofer:v1.0.0`) → CityJSONSeq → `scripts/city3d/buildings/cityjsonseq_to_bld.py` → un `.bld` par dalle. Mesuré sur la dalle
 0846-6494 : roofer lit directement le `.copc.laz` et traite 1 531 bâtiments en 1 min 28 s ; la conversion prend 1 s et donne
 un `.bld` de 2,7 Mo (1 471 bâtiments, 128 033 triangles).
 
@@ -176,8 +176,8 @@ fichier `<dalle>.veg` (la canopée issue des points classés végétation du LiD
 du MNS et dessine à la place un houppier et un tronc par arbre. Sans le réglage, rien n'est chargé ni modifié. La case « Arbres » du
 panneau Maquette n'existe que si le réglage est renseigné.
 
-**Pipeline** (hors navigateur, `scripts/vegetation/README.md`) : nuage COPC → PDAL (Docker, deux passes) → deux grilles de 1 m →
-`scripts/vegetation/pack_veg.py` → un `.veg` par dalle. Mesuré sur la dalle 0846-6494 : ~13 s par passe PDAL, 923 Ko par `.veg`.
+**Pipeline** (hors navigateur, `scripts/city3d/vegetation/README.md`) : nuage COPC → PDAL (Docker, deux passes) → deux grilles de 1 m →
+`scripts/city3d/vegetation/pack_veg.py` → un `.veg` par dalle (`scripts/city3d/www` enchaîne les étapes et sert les fichiers pour un essai local). Mesuré sur la dalle 0846-6494 : ~13 s par passe PDAL, 923 Ko par `.veg`.
 PDAL ne sert qu'à lire les classes du COPC, que rien d'autre ne sait lire ici sans nouvelle dépendance ; roofer ne traite que les
 bâtiments.
 

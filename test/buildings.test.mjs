@@ -157,11 +157,11 @@ assert.ok(ext.includes('ng-if=\\"bldEnabled\\"') || ext.includes('ng-if="bldEnab
 assert.ok(/t\.bldMesh\.geometry\.dispose\(\); t\.bldMesh\.material\.dispose\(\)/.test(ext), 'bldMesh détruit avec sa dalle');
 
 // --- la fausse donnée du dépôt est à jour avec le convertisseur Python (ignoré sans python3) ---
-const py = spawnSync('python3', ['-I', fixture('../../scripts/roofer/cityjsonseq_to_bld.py'), fixture('fake.city.jsonl'),
+const py = spawnSync('python3', ['-I', fixture('../../scripts/city3d/buildings/cityjsonseq_to_bld.py'), fixture('fake.city.jsonl'),
     '--tile', '0846-6494', '-o', fixture('../../node_modules/.fake-check.bld')], { encoding: 'utf8' });
 if (py.status === 0) {
     const a = readFileSync(fixture('fake.bld')), b = readFileSync(fixture('../../node_modules/.fake-check.bld'));
-    assert.ok(a.equals(b), 'test/fixtures/fake.bld périmé : relancer scripts/roofer/cityjsonseq_to_bld.py');
+    assert.ok(a.equals(b), 'test/fixtures/fake.bld périmé : relancer scripts/city3d/buildings/cityjsonseq_to_bld.py');
 } else {
     console.log('buildings : python3 indisponible, régénération de fake.bld ignorée');
 }

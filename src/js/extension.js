@@ -157,7 +157,9 @@ angular
         var _orthoWmsUrl = 'https://data.geopf.fr/wms-r/wms';   // vide = pas de coloration par orthophoto
         var _orthoMaxSize = 4096;                               // résolution maximale de l'orthophoto (px)
         var _buildingsUrl = '';                                 // dossier des fichiers <dalle>.bld (bâtiments LoD2) ; vide = désactivé
-        var _BLD_MARGIN   = 1;                                  // marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS
+        // Marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS : 1 m, puis 0,1 m par mètre de hauteur au-delà
+        // de 12 m, au plus 3 m (les grands bâtiments dépassent plus leur emprise BD TOPO ; voir marginFor dans buildings.js).
+        var _BLD_MARGIN   = { base: 1, from: 12, perMeter: 0.1, cap: 3 };
 
         var _WFS_TYPENAME = 'IGNF_LIDAR-HD_METADONNEE:metadata';
         // Demi-largeurs proposées pour le couloir du profil (m) : de 20 cm à 50 m d'épaisseur.

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseBld, rasterizeFootprints, dilate, maskSurface } from '../src/js/buildings.js';
+import { parseBld, rasterizeFootprints, dilate, dilateById, marginFor, maskSurface } from '../src/js/buildings.js';
 import { Grid } from '../src/js/raster.js';
 
 const fixture = (name) => fileURLToPath(new URL('./fixtures/' + name, import.meta.url));
@@ -92,6 +92,38 @@ for (const size of [1000, 2000]) {
     // marge nulle : seulement l'emprise
     const r0 = maskSurface(mns, mnt, bld, 0);
     assert.ok(r0.covered < r.covered);
+}
+
+// --- marge variable selon la hauteur du bâtiment ---
+const VAR = { base: 1, from: 12, perMeter: 0.1, cap: 3 };
+assert.equal(marginFor(5, VAR), 1); assert.equal(marginFor(12, VAR), 1);
+assert.ok(Math.abs(marginFor(22, VAR) - 2) < 1e-9); assert.equal(marginFor(38, VAR), 3); assert.equal(marginFor(200, VAR), 3);
+{
+    // rayons différents par polygone : 1 cellule pour le 1er, 3 pour le 2e, côte à côte sans se mélanger
+    const ids = new Int32Array(25 * 5); ids[2 * 25 + 5] = 1; ids[2 * 25 + 18] = 2;
+    const out = dilateById(ids, 25, [0, 1, 3]);
+    let a = 0, b = 0; for (let j = 0; j < 5; j++) { for (let i = 0; i < 25; i++) { if (out[j * 25 + i]) { if (i < 12) a++; else b++; } } }
+    assert.equal(a, 3 + 1 + 1, 'rayon 1 : croix tronquée par le bord haut/bas de la grille de 5 lignes');
+    assert.ok(b > a, 'rayon 3 plus large');
+}
+for (const size of [1000, 2000]) {
+    // bâtiment 1 haut de 30 m (marge 1 + 18 x 0,1 = 2,8 m), le reste comme avant : une maison de 12 m garde 1 m
+    const { mnt, mns } = grids(size), step = 1000 / size;
+    const cell = (g, lx, ly) => g.data[Math.round((mns.y0 - 6493000 - ly) / step) * size + Math.round((846000 + lx - mns.x0) / step)];
+    for (let j = 0; j < size; j++) { for (let i = 0; i < size; i++) {
+        const lx = mns.x0 + i * step - 846000, ly = mns.y0 - j * step - 6493000;
+        if (lx >= 120 && lx <= 140 && ly >= 120 && ly <= 130) { mns.data[j * size + i] = mnt.data[j * size + i] + 30; }
+    } }
+    const fixed = maskSurface(mns, mnt, bld, 1), varm = maskSurface(mns, mnt, bld, VAR);
+    // distances comptées depuis le centre de la première cellule couverte (à 120,25 à 1 m, à 120,0 à 0,5 m) : ~2 m pour 118,25 et ~4 m pour 116,25
+    assert.equal(cell(fixed.grid, 118.25, 125.25), cell(mns, 118.25, 125.25), size + ' : marge fixe 1 m, rampe à 2 m restée');
+    assert.equal(cell(varm.grid, 118.25, 125.25), cell(mnt, 118.25, 125.25), size + ' : marge variable (2,8 m), rampe à 2 m retirée');
+    assert.equal(cell(varm.grid, 116.25, 125.25), cell(mns, 116.25, 125.25), size + ' : au-delà de la marge variable, intact');
+    // les autres bâtiments (9 m, 8 m de haut) gardent 1 m : même résultat que la marge fixe autour du L
+    assert.equal(cell(varm.grid, 159.25, 135.25), cell(fixed.grid, 159.25, 135.25));
+    assert.equal(cell(varm.grid, 158.25, 135.25), cell(mns, 158.25, 135.25), size + ' : autre bâtiment (bas), marge de 1 m seulement');
+    assert.ok(varm.covered > fixed.covered);
+    assert.deepEqual(Array.from(mns.data.slice(0, 50)), Array.from(grids(size).mns.data.slice(0, 50)), 'MNS d\'origine intact');
 }
 
 // MNT inconnu sous le bâtiment : la cellule garde la valeur du MNS (pas de trou ni de valeur inventée)

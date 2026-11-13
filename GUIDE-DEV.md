@@ -133,7 +133,12 @@ du MNT à celle du toit selon `mixT` (comme le MNS dans la maquette). Fragment `
 (normale presque horizontale) grisés, et sans le retournement `n.z < 0` pour eux : leur `n.z` vaut 0 au bruit près et
 l'éclairage devenait moucheté (défaut vu sur le banc d'essai).
 **Masquage** : `maskSurface` (`buildings.js`) rastérise les emprises (trous compris) sur la grille du MNS, les élargit d'un
-disque de 1 m (`_BLD_MARGIN`) et renvoie une COPIE du MNS où ces cellules prennent l'altitude du MNT. `surfGrid` reste
+disque et renvoie une COPIE du MNS où ces cellules prennent l'altitude du MNT. La marge (`_BLD_MARGIN`, `marginFor`) vaut 1 m
+jusqu'à 12 m de hauteur, puis 0,1 m de plus par mètre, au plus 3 m : la hauteur de chaque emprise est mesurée dans le MNS
+(maximum de MNS - MNT sous l'emprise), le `.bld` ne la porte pas. Un grand bâtiment dépasse plus son emprise BD TOPO
+(relevée au niveau du toit, avec ses contreforts) : sur la tour de 38 m du centre de Vienne, une marge fixe de 1 m laissait 81
+cellules de rampe à plus de 15 m de haut, la marge variable en laisse 4, pour 10 000 cellules remplacées de plus sur la dalle
+(+3,7 %) contre 80 000 de plus avec une marge fixe de 3 m. `surfGrid` reste
 intact (le profil l'utilise) ; la texture est refaite quand la résolution du MNS ou du MNT change, quand les bâtiments arrivent
 et quand la case est cochée ou décochée. Un fichier absent (404) ou invalide laisse la dalle comme sans le réglage.
 
@@ -152,8 +157,8 @@ en pente (`slanted`) viennent de la dalle réelle.
   rendu sur forte pente n'a pas été examiné de près ;
 - un bâtiment à cheval sur deux dalles appartient à celle qui contient son centre ; il est dessiné en entier, mais la dalle
   voisine ne le retire pas de son MNS ;
-- le masque dépend de la maille du MNS (1 m puis 0,5 m) : une marge de 1 m peut laisser un liséré de rampe, ou mordre sur un
-  trottoir ;
+- le masque dépend de la maille du MNS (1 m puis 0,5 m) : un liséré de rampe peut subsister (quelques pointes fines au pied de la
+  tour de 38 m malgré la marge variable), ou un trottoir être mordu ;
 - un bâtiment dont l'emprise BD TOPO diffère de la réalité (construction récente ou démolie) est masqué d'après l'emprise ;
 - une requête par dalle (pas de cache hors celui du navigateur) ; 9 dalles ≈ 1,2 million de triangles de bâtiments : mémoire
   graphique et fluidité non mesurées ;

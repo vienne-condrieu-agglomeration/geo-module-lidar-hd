@@ -53,9 +53,10 @@ function parseBld(buffer) {
 // Rastérise les emprises sur une grille : renvoie un Uint8Array (size × size) valant 1 pour chaque cellule dont le
 // centre est dans un polygone (anneau extérieur moins trous, règle pair-impair). Les cellules sont repérées comme dans
 // raster.js : colonne i au centre x0 + i·step, ligne j (0 au nord) au centre y0 - j·step ; x0 et y0 sont ici dans le même
-// repère que les polygones (locaux à la dalle).
-function rasterizeFootprints(polys, size, step, x0, y0) {
-    var mask = new Uint8Array(size * size);
+// repère que les polygones (locaux à la dalle). Avec `withIds`, renvoie un Int32Array où chaque cellule porte le numéro
+// (1, 2, …) du dernier polygone qui la couvre, 0 si aucun.
+function rasterizeFootprints(polys, size, step, x0, y0, withIds) {
+    var mask = withIds ? new Int32Array(size * size) : new Uint8Array(size * size);
     for (var k = 0; k < polys.length; k++) {
         var rings = polys[k], ymin = Infinity, ymax = -Infinity, a, b;
         for (a = 0; a < rings.length; a++) {
@@ -77,7 +78,7 @@ function rasterizeFootprints(polys, size, step, x0, y0) {
             xs.sort(function (u, v) { return u - v; });
             for (var s = 0; s + 1 < xs.length; s += 2) {
                 var i0 = Math.max(0, Math.ceil((xs[s] - x0) / step)), i1 = Math.min(size - 1, Math.floor((xs[s + 1] - x0) / step));
-                for (var i = i0; i <= i1; i++) { mask[j * size + i] = 1; }
+                for (var i = i0; i <= i1; i++) { mask[j * size + i] = withIds ? k + 1 : 1; }
             }
         }
     }
@@ -111,22 +112,80 @@ function dilate(mask, size, radius) {
     return out;
 }
 
-// Copie du MNS où les cellules couvertes par les emprises des bâtiments (élargies de `margin` mètres, 1 par défaut)
-// prennent l'altitude du MNT. Les grilles sont celles de raster.js (Grid : size, step, x0, y0, data, sample(), nearest()).
-// Le MNS d'origine n'est pas modifié (le profil l'utilise). Renvoie { grid, covered } : la copie (même type que le MNS,
-// mêmes champs) et le nombre de cellules remplacées. Une cellule dont le MNT est inconnu garde la valeur du MNS.
+// Dilatation où chaque cellule porte un numéro de polygone (voir rasterizeFootprints) dont le rayon (en cellules) est
+// `radii[numéro]`. Renvoie un masque. Les courses de cellules sont coupées quand le numéro change.
+function dilateById(ids, size, radii) {
+    var out = new Uint8Array(ids.length), cache = {};
+    function halves(r) {
+        var key = r.toFixed(3);
+        if (cache[key]) { return cache[key]; }
+        var R = Math.ceil(r), h = [];
+        for (var dy = -R; dy <= R; dy++) { var h2 = r * r - dy * dy; h.push(h2 >= 0 ? Math.floor(Math.sqrt(h2)) : -1); }
+        return (cache[key] = { R: R, h: h });
+    }
+    for (var j = 0; j < size; j++) {
+        var i = 0;
+        while (i < size) {
+            var id = ids[j * size + i];
+            if (!id) { i++; continue; }
+            var a = i;
+            while (i < size && ids[j * size + i] === id) { i++; }
+            var b = i - 1, r = radii[id] || 0;
+            if (!(r > 0)) { for (var c0 = a; c0 <= b; c0++) { out[j * size + c0] = 1; } continue; }
+            var hv = halves(r);
+            for (var dy = -hv.R; dy <= hv.R; dy++) {
+                var hw = hv.h[dy + hv.R], jj = j + dy;
+                if (hw < 0 || jj < 0 || jj >= size) { continue; }
+                var from = Math.max(0, a - hw), to = Math.min(size - 1, b + hw);
+                for (var c = from; c <= to; c++) { out[jj * size + c] = 1; }
+            }
+        }
+    }
+    return out;
+}
+
+// Marge (m) d'une emprise de hauteur h (m) : `base` jusqu'à `from`, puis `perMeter` par mètre de plus, au plus `cap`.
+// Les grands bâtiments dépassent plus leur emprise BD TOPO (relevée au niveau du toit, avec des contreforts) : leurs rampes
+// s'étendent au-delà d'une marge de 1 m, alors qu'une maison n'en a pas besoin.
+function marginFor(h, m) {
+    return Math.min(m.cap, m.base + Math.max(0, h - m.from) * m.perMeter);
+}
+
+// Copie du MNS où les cellules couvertes par les emprises des bâtiments, élargies, prennent l'altitude du MNT. Les grilles
+// sont celles de raster.js (Grid : size, step, x0, y0, data, sample(), nearest()). `margin` est soit un nombre (marge fixe
+// en mètres, 1 par défaut), soit { base, from, perMeter, cap } : marge variable selon la hauteur de chaque bâtiment, mesurée
+// dans le MNS (maximum de MNS - MNT sous l'emprise). Le MNS d'origine n'est pas modifié (le profil l'utilise). Renvoie
+// { grid, covered } : la copie (même type que le MNS, mêmes champs) et le nombre de cellules remplacées. Une cellule dont le
+// MNT est inconnu garde la valeur du MNS.
 function maskSurface(mns, mnt, buildings, margin) {
     var m = margin === undefined ? 1 : margin;
     var size = mns.size, step = mns.step, ox = buildings.origin[0], oy = buildings.origin[1];
-    var mask = dilate(rasterizeFootprints(buildings.polys, size, step, mns.x0 - ox, mns.y0 - oy), size, m / step);
+    var x0 = mns.x0 - ox, y0 = mns.y0 - oy, mask, k, i, j;
+    function ground(x, y) { var v = mnt.sample(x, y); return v === v ? v : mnt.nearest(x, y); }
+    if (typeof m === 'number') {
+        mask = dilate(rasterizeFootprints(buildings.polys, size, step, x0, y0), size, m / step);
+    } else {
+        var ids = rasterizeFootprints(buildings.polys, size, step, x0, y0, true);
+        var heights = new Float32Array(buildings.polys.length + 1);
+        for (j = 0; j < size; j++) {
+            for (i = 0; i < size; i++) {
+                k = j * size + i;
+                if (!ids[k]) { continue; }
+                var g = ground(mns.x0 + i * step, mns.y0 - j * step), v = mns.data[k] - g;
+                if (v === v && v > heights[ids[k]]) { heights[ids[k]] = v; }
+            }
+        }
+        var radii = new Float32Array(heights.length);
+        for (k = 1; k < heights.length; k++) { radii[k] = marginFor(heights[k], m) / step; }
+        mask = dilateById(ids, size, radii);
+    }
     var data = new Float32Array(mns.data), covered = 0;
-    for (var j = 0; j < size; j++) {
-        for (var i = 0; i < size; i++) {
-            var k = j * size + i;
+    for (j = 0; j < size; j++) {
+        for (i = 0; i < size; i++) {
+            k = j * size + i;
             if (!mask[k]) { continue; }
-            var x = mns.x0 + i * step, y = mns.y0 - j * step, v = mnt.sample(x, y);
-            if (v !== v) { v = mnt.nearest(x, y); }
-            if (v === v) { data[k] = v; covered++; }
+            var gz = ground(mns.x0 + i * step, mns.y0 - j * step);
+            if (gz === gz) { data[k] = gz; covered++; }
         }
     }
     var grid = Object.create(Object.getPrototypeOf(mns));
@@ -135,4 +194,4 @@ function maskSurface(mns, mnt, buildings, margin) {
     return { grid: grid, covered: covered };
 }
 
-export { parseBld, rasterizeFootprints, dilate, maskSurface };
+export { parseBld, rasterizeFootprints, dilate, dilateById, marginFor, maskSurface };

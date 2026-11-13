@@ -111,6 +111,19 @@ for (const size of [1000, 2000]) {
     assert.ok(Number.isFinite(r.grid.data[k]), 'repli sur le pixel voisin');
 }
 
+// --- branchement dans le module (lecture du source : extension.js dépend du navigateur) ---
+const ext = readFileSync(fileURLToPath(new URL('../src/js/extension.js', import.meta.url)), 'utf8');
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../src/plugin.geoext.json', import.meta.url)), 'utf8'));
+const settings = manifest.configuration.flatMap((g) => g.elements);
+const bldSetting = settings.find((e) => e.key === 'buildingsUrl');
+assert.ok(bldSetting && bldSetting.defaultValue === '' && !bldSetting.required, 'réglage buildingsUrl : vide par défaut = désactivé');
+// le fragment shader des bâtiments est dérivé de celui de la maquette par remplacement de ces deux lignes : si elles changent, les murs ne seraient plus adaptés
+assert.ok(ext.includes("'    if (n.z < 0.0) { n = -n; }',") && ext.includes("'    float l = clamp(dot(n, normalize(vec3(-0.45, 0.55, 0.70))), 0.0, 1.0);',"), 'ancres du shader de la maquette');
+// sans réglage, rien ne doit se charger ni se masquer
+assert.ok(ext.includes("var wantBld = !!(_buildingsUrl && m.buildings);"));
+assert.ok(ext.includes('ng-if=\\"bldEnabled\\"') || ext.includes('ng-if="bldEnabled"'), 'case visible seulement si buildingsUrl est réglé');
+assert.ok(/t\.bldMesh\.geometry\.dispose\(\); t\.bldMesh\.material\.dispose\(\)/.test(ext), 'bldMesh détruit avec sa dalle');
+
 // --- la fausse donnée du dépôt est à jour avec le convertisseur Python (ignoré sans python3) ---
 const py = spawnSync('python3', ['-I', fixture('../../scripts/roofer/cityjsonseq_to_bld.py'), fixture('fake.city.jsonl'),
     '--tile', '0846-6494', '-o', fixture('../../node_modules/.fake-check.bld')], { encoding: 'utf8' });

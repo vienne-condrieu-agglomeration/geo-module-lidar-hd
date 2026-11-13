@@ -13,6 +13,7 @@ import {
 // Worker de décodage LAZ, compilé à part (webpack.worker.config.js) et embarqué en texte.
 import workerSource from '../../build/las-worker.js';
 import { createRasterReader } from './raster.js';
+import { parseBld, maskSurface } from './buildings.js';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TOURS, MAP_TARGET } from './tours.js';
@@ -155,6 +156,8 @@ angular
         });
         var _orthoWmsUrl = 'https://data.geopf.fr/wms-r/wms';   // vide = pas de coloration par orthophoto
         var _orthoMaxSize = 4096;                               // résolution maximale de l'orthophoto (px)
+        var _buildingsUrl = '';                                 // dossier des fichiers <dalle>.bld (bâtiments LoD2) ; vide = désactivé
+        var _BLD_MARGIN   = 1;                                  // marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS
 
         var _WFS_TYPENAME = 'IGNF_LIDAR-HD_METADONNEE:metadata';
         // Demi-largeurs proposées pour le couloir du profil (m) : de 20 cm à 50 m d'épaisseur.
@@ -205,6 +208,7 @@ angular
                 if (props.orthoWmsUrl !== undefined && props.orthoWmsUrl !== null) {
                     _orthoWmsUrl = String(props.orthoWmsUrl).trim();
                 }
+                if (props.buildingsUrl) { _buildingsUrl = String(props.buildingsUrl).trim().replace(/\/+$/, ''); }
             }
             if (!_registered) {
                 _registered = true;
@@ -401,6 +405,8 @@ angular
                 '        <select ng-model="maq.color" ng-change="applyMaq()"><option value="ortho">Orthophoto IGN</option><option value="height">Hauteur au sol</option><option value="grey">Grise (relief seul)</option></select></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-relief"><span>Relief</span>',
                 '        <input type="range" min="1" max="3" step="0.5" ng-model="maq.exag" ng-change="applyMaq()" title="Exagération verticale"><em>×{{ maq.exag }}</em></div>',
+                '      <div class="geo-lidar-row geo-lidar-row--maq-bld" ng-if="bldEnabled"><span>Bâtiments LoD2</span>',
+                '        <input type="checkbox" ng-model="maq.buildings" ng-change="applyMaq()" title="Superposer les bâtiments reconstruits (LoD2) et retirer les bâtiments bruités du MNS"></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-pts"><span>Nuage de points</span>',
                 '        <input type="checkbox" ng-model="maq.points" ng-change="applyMaq()" title="Garder le nuage de points affiché avec la maquette"></div>',
                 '      <div class="geo-lidar-mnt-text geo-lidar-mnt-hint">Maille de 1 m pour la dalle cliquée, 2 m pour les voisines. Pointage d\'altitude indisponible tant que le nuage est masqué ; le profil reste utilisable.</div>',
@@ -740,7 +746,8 @@ angular
                 $scope.dxfCrsChanged = function () { _saveDxfCrs($scope.profile.dxfCrs); };
                 $scope.mntRes = _MNT_RES;
                 // Maquette 3D : t = curseur terrain nu (0) -> surface (100), exag = exagération verticale
-                $scope.maq = { on: false, touched: false, t: 100, exag: 1, color: 'ortho', points: false, anim: false, state: 'idle' };
+                $scope.maq = { on: false, touched: false, t: 100, exag: 1, color: 'ortho', points: false, buildings: true, anim: false, state: 'idle' };
+                $scope.bldEnabled = !!_buildingsUrl;   // la case « Bâtiments LoD2 » n'existe que si le réglage buildingsUrl est renseigné
                 $scope.mntPts = { classes: { 2: true }, thin: 1 };   // sol seul par défaut
                 $scope.mntCad = { on: false, parcelles: true, batiments: true, sections: false, numeros: true, lift: false, liftM: 10 };
                 $scope.mntOrtho = { on: false, res: 0.2 };
@@ -1659,6 +1666,31 @@ angular
             });
         }
 
+        // Bâtiments LoD2 de la dalle (<buildingsUrl>/<dalle>.bld), lus une fois quand la maquette les demande. Fichier absent
+        // (404) : silence, la dalle reste comme sans le réglage. Les autres échecs sont signalés une fois dans la console.
+        function _startBuildings(tile, seq) {
+            tile.bldLoading = true;
+            var url = _buildingsUrl + '/' + encodeURIComponent(tile.name) + '.bld';
+            fetch(url).then(function (r) {
+                if (r.status === 404) { return null; }
+                if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                return r.arrayBuffer();
+            }).then(function (buf) {
+                tile.bldLoading = false;
+                if (seq !== _loadSeq || !_view || _tiles.indexOf(tile) === -1) { return; }
+                if (!buf) { tile.bldMissing = true; return; }
+                var bld = parseBld(buf);
+                if (Math.abs(bld.origin[0] - tile.bbox[0]) > 0.01 || Math.abs(bld.origin[1] - tile.bbox[1]) > 0.01) {
+                    throw new Error('origine ' + bld.origin.join(', ') + ' au lieu de ' + tile.bbox[0] + ', ' + tile.bbox[1]);
+                }
+                tile.bld = bld;
+                _maquetteUpdate();
+            }).catch(function (err) {
+                tile.bldLoading = false; tile.bldMissing = true;
+                console.warn('[geo-lidar-hd] bâtiments LoD2 de la dalle ' + tile.name + ' ignorés (' + url + ') :', err);
+            });
+        }
+
         // Pour les dalles que touche le tracé : MNS à lire, MNT des dalles voisines (1 m) à affiner en 0,5 m.
         function _ensureProfileRasters() {
             if (!_prof) { return; }
@@ -1770,6 +1802,31 @@ angular
             '}'
         ].join('\n');
 
+        // Bâtiments LoD2 (fichiers .bld) : maillage par dalle superposé à la maquette. Le vertex shader est celui de la
+        // maquette (mêmes fonctions d'échantillonnage du MNT, mêmes uniformes) avec une autre fonction main : un pied de mur
+        // (aFoot = 1) prend l'altitude du MNT comme le terrain ; les autres sommets vont de l'altitude du MNT à l'altitude du
+        // toit (position.z, NGF) selon mixT, comme le MNS dans la maquette. Les murs sont grisés (normale presque horizontale)
+        // au lieu d'y étirer l'orthophoto ; le reste du fragment shader est celui de la maquette.
+        var _BLD_VS = _MAQ_VS.slice(0, _MAQ_VS.indexOf('void main() {'))
+            .replace('varying vec3 vLocal;', 'attribute float aFoot;\nvarying vec3 vLocal;') + [
+            'void main() {',
+            '    float zt = sampleZ(tTex, tInfo, position.xy);',
+            '    float z = 0.0; vH = 0.0; vOk = 1.0;',
+            '    if (zt > -9000.0) { z = aFoot > 0.5 ? zt : mix(zt, max(position.z, zt), mixT); vH = z - zt; }',
+            '    else { vOk = 0.0; }',
+            '    z = zRef + (z - zRef) * exag;',
+            '    vLocal = vec3(position.xy, z);',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(position.xy, z, 1.0);',
+            '}'
+        ].join('\n');
+        // Sur un mur, n.z vaut 0 au bruit numérique près : le retournement « n.z < 0 » de la maquette changerait au hasard
+        // le sens de la normale d'un pixel à l'autre (éclairage moucheté). On ne le garde que pour les faces non verticales ;
+        // pour un mur, la normale issue des dérivées regarde déjà vers la caméra.
+        var _BLD_FS = _MAQ_FS
+            .replace('    if (n.z < 0.0) { n = -n; }', '    if (n.z < 0.0 && abs(n.z) >= 0.3) { n = -n; }')
+            .replace('    float l = clamp(', '    if (abs(n.z) < 0.3) { base = vec3(0.74, 0.73, 0.70); }\n    float l = clamp(');
+        if (_BLD_FS.split('abs(n.z)').length !== 3) { console.warn('[geo-lidar-hd] shader de la maquette modifié : murs des bâtiments non adaptés'); }
+
         // Grille de n × n mailles sur 1000 m : x, y locaux (0 à 1000), z = 0 (donné par le vertex shader).
         function _maqGeometry(n) {
             if (_maqGeo[n]) { return _maqGeo[n]; }
@@ -1815,12 +1872,27 @@ angular
             _tiles.forEach(function (t) {
                 if (!t.bbox) { return; }
                 total++;
-                if (!m.on) { if (t.maqMesh) { t.maqMesh.visible = false; } return; }
+                if (!m.on) { if (t.maqMesh) { t.maqMesh.visible = false; } if (t.bldMesh) { t.bldMesh.visible = false; } return; }
                 if (!t.surfGrid && !t.surfLoading) { t.surfLoading = true; _startSurface(t, _loadSeq, [1000]); }
+                var wantBld = !!(_buildingsUrl && m.buildings);
+                if (wantBld && !t.bld && !t.bldLoading && !t.bldMissing) { _startBuildings(t, _loadSeq); }
                 if (!t.groundGrid || !t.groundTex || !t.surfGrid) { return; }
-                if (!t.surfTex || t.surfTexSize !== t.surfGrid.size) {
+                // Texture du MNS : si les bâtiments LoD2 sont là, une COPIE du MNS dont les emprises (élargies) prennent
+                // l'altitude du MNT ; surfGrid reste intact (le profil l'utilise). Refaite à chaque passe de résolution
+                // du MNS ou du MNT, à l'arrivée des bâtiments et quand la case est cochée ou décochée.
+                var masked = wantBld && !!t.bld;
+                var surfKey = t.surfGrid.size + (masked ? 'b' + t.groundGrid.size : '');
+                if (!t.surfTex || t.surfTexKey !== surfKey) {
+                    var surfSource = t.surfGrid;
+                    if (masked) {
+                        try { surfSource = maskSurface(t.surfGrid, t.groundGrid, t.bld, _BLD_MARGIN).grid; }
+                        catch (err) {   // la maquette doit rester celle d'avant : on abandonne les bâtiments de cette dalle
+                            console.warn('[geo-lidar-hd] masquage des bâtiments de la dalle ' + t.name + ' impossible :', err);
+                            t.bld = null; t.bldMissing = true; masked = false; surfKey = t.surfGrid.size;
+                        }
+                    }
                     if (t.surfTex) { t.surfTex.dispose(); }
-                    t.surfTex = _floatTexture(t.surfGrid).tex; t.surfTexSize = t.surfGrid.size;
+                    t.surfTex = _floatTexture(surfSource).tex; t.surfTexKey = surfKey;
                 }
                 var mesh = t.maqMesh;
                 if (!mesh) {
@@ -1846,6 +1918,30 @@ angular
                 u.zRef.value = isFinite(t.groundMin) ? t.groundMin : 0;
                 mesh.visible = true;
                 mesh.updateMatrixWorld(true);   // scene.matrixWorldAutoUpdate est désactivé par iTowns
+                // Bâtiments LoD2 : un maillage à côté de celui de la maquette, dont le matériau PARTAGE ses objets uniforms
+                // (curseur, relief, texture, orthophoto, MNT) pour que « Animer » et les réglages le suivent.
+                if (masked && t.bld.nVerts > 0 && !t.bldMesh) {
+                    var bg = new BufferGeometry();
+                    bg.setAttribute('position', new BufferAttribute(t.bld.positions, 3));
+                    bg.setAttribute('aFoot', new BufferAttribute(t.bld.foot, 1));
+                    bg.setIndex(new BufferAttribute(t.bld.indices, 1));
+                    var bmat = new ShaderMaterial({
+                        vertexShader: _BLD_VS, fragmentShader: _BLD_FS, side: DoubleSide,
+                        uniforms: {
+                            tTex: u.tTex, tInfo: u.tInfo, oTex: u.oTex, useOrtho: u.useOrtho, colorMode: u.colorMode, hagMax: u.hagMax,
+                            mixT: u.mixT, exag: u.exag, zRef: u.zRef
+                        }
+                    });
+                    var bmesh = t.bldMesh = new Mesh(bg, bmat);
+                    bmesh.frustumCulled = false;   // sommets déplacés par le shader
+                    bmesh.name = 'geo-lidar-batiments-' + t.name;
+                    bmesh.position.set(t.bbox[0], t.bbox[1], 0);
+                    _view.scene.add(bmesh);
+                }
+                if (t.bldMesh) {
+                    t.bldMesh.visible = masked;
+                    t.bldMesh.updateMatrixWorld(true);
+                }
                 ready++;
             });
             var state = !m.on ? 'idle' : (total && ready === total ? 'ready' : 'loading');
@@ -1868,6 +1964,7 @@ angular
                 u.useOrtho.value = (m.color === 'ortho' && t.orthoTex) ? 1 : 0;
                 u.hagMax.value = hmax;
                 t.maqMesh.visible = !!m.on;
+                if (t.bldMesh) { t.bldMesh.visible = !!(m.on && m.buildings && t.bld); }
             });
             _view.notifyChange(_view.camera.camera3D);
         }
@@ -1983,6 +2080,8 @@ angular
             if (t.groundTex) { t.groundTex.dispose(); }
             if (t.surfTex) { t.surfTex.dispose(); }
             if (t.maqMesh) { if (t.maqMesh.parent) { t.maqMesh.parent.remove(t.maqMesh); } t.maqMesh.material.dispose(); t.maqMesh = null; }
+            if (t.bldMesh) { if (t.bldMesh.parent) { t.bldMesh.parent.remove(t.bldMesh); } t.bldMesh.geometry.dispose(); t.bldMesh.material.dispose(); t.bldMesh = null; }
+            t.bld = null;
             t.layer = null; t.orthoTex = null; t.orthoPix = null; t.groundTex = null; t.groundGrid = null; t.surfGrid = null; t.surfTex = null;
         }
 

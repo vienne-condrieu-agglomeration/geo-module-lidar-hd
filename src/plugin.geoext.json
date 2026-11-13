@@ -100,6 +100,15 @@
           "required": false,
           "type": "STRING",
           "defaultValue": "EPSG:2154,EPSG:3942,EPSG:3943,EPSG:3944,EPSG:3945,EPSG:3946,EPSG:3947,EPSG:3948,EPSG:3949,EPSG:3950,EPSG:4326"
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "URL des bâtiments LoD2 (prototype)",
+          "description": "Dossier de fichiers statiques <dalle>.bld (ex. 0846-6494.bld) contenant les bâtiments LoD2 reconstruits par roofer, produits par scripts/roofer du module. Active la case « Bâtiments LoD2 » du panneau Maquette : ils sont superposés à la maquette et retirés du MNS. Doit autoriser le CORS. Laisser vide pour désactiver la fonction (comportement inchangé) ; une dalle sans fichier reste inchangée.",
+          "key": "buildingsUrl",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": ""
         }
       ]
     },

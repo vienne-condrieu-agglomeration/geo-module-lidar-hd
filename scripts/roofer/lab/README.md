@@ -14,7 +14,7 @@ Prérequis : `docker`, `curl`, `python3`, ~1 Go d'espace libre, un accès à `da
 ## 1. Préparer le fichier (une fois, ~2 min + téléchargement de ~290 Mo)
 
 ```bash
-cd src/modules/geo-lidar-hd/scripts/roofer/local-testbed
+cd src/modules/geo-lidar-hd/scripts/roofer/lab
 ./prepare.sh
 ```
 

@@ -3,7 +3,8 @@ import pluginConf from '../plugin.geoext.json';
 import {
     Vector2, Vector3, Vector4, Matrix4, Texture, LinearFilter, MOUSE, TOUCH,
     Group, Mesh, SphereGeometry, MeshBasicMaterial, BufferGeometry, Float32BufferAttribute, DoubleSide,
-    LineSegments, Line, LineBasicMaterial, DataTexture, RedFormat, FloatType, NearestFilter, BufferAttribute, ShaderMaterial
+    LineSegments, Line, LineBasicMaterial, DataTexture, RedFormat, FloatType, NearestFilter, BufferAttribute, ShaderMaterial,
+    InstancedMesh, IcosahedronGeometry, CylinderGeometry, Quaternion
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import proj4 from 'proj4';
@@ -14,6 +15,7 @@ import {
 import workerSource from '../../build/las-worker.js';
 import { createRasterReader } from './raster.js';
 import { parseBld, maskSurface } from './buildings.js';
+import { parseVeg, detectTrees, removeCanopy } from './vegetation.js';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TOURS, MAP_TARGET } from './tours.js';
@@ -160,6 +162,7 @@ angular
         // Marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS : 1 m, puis 0,1 m par mètre de hauteur au-delà
         // de 12 m, au plus 3 m (les grands bâtiments dépassent plus leur emprise BD TOPO ; voir marginFor dans buildings.js).
         var _BLD_MARGIN   = { base: 1, from: 12, perMeter: 0.1, cap: 3 };
+        var _vegetationUrl = '';                                // dossier des fichiers <dalle>.veg (arbres 3D) ; vide = désactivé
 
         var _WFS_TYPENAME = 'IGNF_LIDAR-HD_METADONNEE:metadata';
         // Demi-largeurs proposées pour le couloir du profil (m) : de 20 cm à 50 m d'épaisseur.
@@ -211,6 +214,7 @@ angular
                     _orthoWmsUrl = String(props.orthoWmsUrl).trim();
                 }
                 if (props.buildingsUrl) { _buildingsUrl = String(props.buildingsUrl).trim().replace(/\/+$/, ''); }
+                if (props.vegetationUrl) { _vegetationUrl = String(props.vegetationUrl).trim().replace(/\/+$/, ''); }
             }
             if (!_registered) {
                 _registered = true;
@@ -409,6 +413,8 @@ angular
                 '        <input type="range" min="1" max="3" step="0.5" ng-model="maq.exag" ng-change="applyMaq()" title="Exagération verticale"><em>×{{ maq.exag }}</em></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-bld" ng-if="bldEnabled"><span>Bâtiments LoD2</span>',
                 '        <input type="checkbox" ng-model="maq.buildings" ng-change="applyMaq()" title="Superposer les bâtiments reconstruits (LoD2) et retirer les bâtiments bruités du MNS"></div>',
+                '      <div class="geo-lidar-row geo-lidar-row--maq-veg" ng-if="vegEnabled"><span>Arbres</span>',
+                '        <input type="checkbox" ng-model="maq.trees" ng-change="applyMaq()" title="Remplacer les cônes de la végétation du MNS par des arbres en volumes simples"></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-pts"><span>Nuage de points</span>',
                 '        <input type="checkbox" ng-model="maq.points" ng-change="applyMaq()" title="Garder le nuage de points affiché avec la maquette"></div>',
                 '      <div class="geo-lidar-mnt-text geo-lidar-mnt-hint">Maille de 1 m pour la dalle cliquée, 2 m pour les voisines. Pointage d\'altitude indisponible tant que le nuage est masqué ; le profil reste utilisable.</div>',
@@ -748,7 +754,8 @@ angular
                 $scope.dxfCrsChanged = function () { _saveDxfCrs($scope.profile.dxfCrs); };
                 $scope.mntRes = _MNT_RES;
                 // Maquette 3D : t = curseur terrain nu (0) -> surface (100), exag = exagération verticale
-                $scope.maq = { on: false, touched: false, t: 100, exag: 1, color: 'ortho', points: false, buildings: true, anim: false, state: 'idle' };
+                $scope.maq = { on: false, touched: false, t: 100, exag: 1, color: 'ortho', points: false, buildings: true, trees: true, anim: false, state: 'idle' };
+                $scope.vegEnabled = !!_vegetationUrl;   // la case « Arbres » n'existe que si le réglage vegetationUrl est renseigné
                 $scope.bldEnabled = !!_buildingsUrl;   // la case « Bâtiments LoD2 » n'existe que si le réglage buildingsUrl est renseigné
                 $scope.mntPts = { classes: { 2: true }, thin: 1 };   // sol seul par défaut
                 $scope.mntCad = { on: false, parcelles: true, batiments: true, sections: false, numeros: true, lift: false, liftM: 10 };
@@ -1693,6 +1700,32 @@ angular
             });
         }
 
+        // Canopée de la dalle (<vegetationUrl>/<dalle>.veg), lue une fois quand la maquette la demande. Même règle que pour les
+        // bâtiments : fichier absent (404) = silence, autre échec = une ligne dans la console, la dalle reste comme avant.
+        function _startVegetation(tile, seq) {
+            tile.vegLoading = true;
+            var url = _vegetationUrl + '/' + encodeURIComponent(tile.name) + '.veg';
+            fetch(url).then(function (r) {
+                if (r.status === 404) { return null; }
+                if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                return r.arrayBuffer();
+            }).then(function (buf) {
+                return buf ? parseVeg(buf) : null;
+            }).then(function (veg) {
+                tile.vegLoading = false;
+                if (seq !== _loadSeq || !_view || _tiles.indexOf(tile) === -1) { return; }
+                if (!veg) { tile.vegMissing = true; return; }
+                if (Math.abs(veg.x0 - tile.bbox[0]) > 0.01 || Math.abs(veg.y0 - tile.bbox[3]) > 0.01 || Math.abs(veg.size * veg.step - 1000) > 0.01) {
+                    throw new Error('grille ' + veg.x0 + ', ' + veg.y0 + ' (' + (veg.size * veg.step) + ' m) au lieu de la dalle ' + tile.bbox.join(', '));
+                }
+                tile.veg = veg;
+                _maquetteUpdate();
+            }).catch(function (err) {
+                tile.vegLoading = false; tile.vegMissing = true;
+                console.warn('[geo-lidar-hd] arbres de la dalle ' + tile.name + ' ignorés (' + url + ') :', err);
+            });
+        }
+
         // Pour les dalles que touche le tracé : MNS à lire, MNT des dalles voisines (1 m) à affiner en 0,5 m.
         function _ensureProfileRasters() {
             if (!_prof) { return; }
@@ -1829,6 +1862,53 @@ angular
             .replace('    float l = clamp(', '    if (abs(n.z) < 0.3) { base = vec3(0.74, 0.73, 0.70); }\n    float l = clamp(');
         if (_BLD_FS.split('abs(n.z)').length !== 3) { console.warn('[geo-lidar-hd] shader de la maquette modifié : murs des bâtiments non adaptés'); }
 
+        // Arbres 3D (fichiers .veg) : un houppier (icosphère aplatie) et un tronc (cylindre) par arbre, en instances, par dalle. Le
+        // vertex shader reprend les fonctions d'échantillonnage du MNT de la maquette et ses uniformes : l'arbre part du sol à
+        // l'altitude du MNT et monte selon le curseur (comme les bâtiments), suit le relief exagéré, et prend la couleur de
+        // l'orthophoto à son pied (éclaircie, avec une variation d'un arbre à l'autre). Éclairage par les dérivées de la position,
+        // comme la maquette ; la normale n'est pas retournée pour les faces presque verticales (voir _BLD_FS).
+        var _TREE_VS = _MAQ_VS.slice(0, _MAQ_VS.indexOf('void main() {'))
+            .replace('varying vec3 vLocal;', 'uniform sampler2D oTex; varying vec3 vCol; varying vec3 vLocal;') + [
+            'void main() {',
+            '    vec4 wp = instanceMatrix * vec4(position, 1.0);',
+            '    vec2 c = instanceMatrix[3].xy;',
+            '    vec2 xy = c + (wp.xy - c) * mixT;',   // le houppier rétrécit aussi avec le curseur : à 0 (terrain nu) l'arbre a disparu
+            '    float zt = sampleZ(tTex, tInfo, c);',
+            '    float z = wp.z; vH = 0.0; vOk = 1.0;',
+            '    if (zt > -9000.0) { z = zt + (wp.z - zt) * mixT; vH = max(z - zt, 0.0); }',
+            '    z = zRef + (z - zRef) * exag;',
+            '    vLocal = vec3(xy, z);',
+            '    vec2 uv = clamp(c / 1000.0, 0.0, 1.0);',
+            '    vec3 o = (texture2D(oTex, uv + vec2(0.0015, 0.0)).rgb + texture2D(oTex, uv - vec2(0.0015, 0.0)).rgb +',
+            '              texture2D(oTex, uv + vec2(0.0, 0.0015)).rgb + texture2D(oTex, uv - vec2(0.0, 0.0015)).rgb) * 0.25;',
+            '    float rnd = fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453);',
+            '    vCol = mix(o * 1.45, vec3(0.20, 0.38, 0.18), 0.35) * (0.85 + 0.30 * rnd);',
+            '    gl_Position = projectionMatrix * modelViewMatrix * vec4(xy, z, 1.0);',
+            '}'
+        ].join('\n');
+        var _TREE_FS = [
+            'uniform float uTrunk; uniform float useOrtho; uniform int colorMode; uniform float hagMax;',
+            'varying vec3 vLocal; varying float vOk; varying float vH; varying vec3 vCol;',
+            'vec3 ramp(float t) {',
+            '    vec3 c0 = vec3(0.13, 0.20, 0.55); vec3 c1 = vec3(0.10, 0.65, 0.80); vec3 c2 = vec3(0.30, 0.78, 0.30);',
+            '    vec3 c3 = vec3(0.96, 0.85, 0.20); vec3 c4 = vec3(0.85, 0.15, 0.15);',
+            '    float s = t * 4.0;',
+            '    if (s < 1.0) { return mix(c0, c1, s); }',
+            '    if (s < 2.0) { return mix(c1, c2, s - 1.0); }',
+            '    if (s < 3.0) { return mix(c2, c3, s - 2.0); }',
+            '    return mix(c3, c4, min(s - 3.0, 1.0));',
+            '}',
+            'void main() {',
+            '    vec3 base = uTrunk > 0.5 ? vec3(0.36, 0.28, 0.22) : vCol;',
+            '    if (colorMode == 1) { base = ramp(clamp(vH / hagMax, 0.0, 1.0)); }',
+            '    else if (useOrtho < 0.5 && uTrunk < 0.5) { base = vec3(0.50, 0.62, 0.46); }',
+            '    vec3 n = normalize(cross(dFdx(vLocal), dFdy(vLocal)));',
+            '    if (n.z < 0.0 && abs(n.z) >= 0.3) { n = -n; }',
+            '    float l = clamp(dot(n, normalize(vec3(-0.45, 0.55, 0.70))), 0.0, 1.0);',
+            '    gl_FragColor = vec4(base * (0.42 + 0.78 * l), 1.0);',
+            '}'
+        ].join('\n');
+
         // Grille de n × n mailles sur 1000 m : x, y locaux (0 à 1000), z = 0 (donné par le vertex shader).
         function _maqGeometry(n) {
             if (_maqGeo[n]) { return _maqGeo[n]; }
@@ -1874,25 +1954,46 @@ angular
             _tiles.forEach(function (t) {
                 if (!t.bbox) { return; }
                 total++;
-                if (!m.on) { if (t.maqMesh) { t.maqMesh.visible = false; } if (t.bldMesh) { t.bldMesh.visible = false; } return; }
+                if (!m.on) {
+                    if (t.maqMesh) { t.maqMesh.visible = false; }
+                    if (t.bldMesh) { t.bldMesh.visible = false; }
+                    if (t.treeMesh) { t.treeMesh.visible = false; t.trunkMesh.visible = false; }
+                    return;
+                }
                 if (!t.surfGrid && !t.surfLoading) { t.surfLoading = true; _startSurface(t, _loadSeq, [1000]); }
                 var wantBld = !!(_buildingsUrl && m.buildings);
                 if (wantBld && !t.bld && !t.bldLoading && !t.bldMissing) { _startBuildings(t, _loadSeq); }
+                var wantVeg = !!(_vegetationUrl && m.trees);
+                if (wantVeg && !t.veg && !t.vegLoading && !t.vegMissing) { _startVegetation(t, _loadSeq); }
                 if (!t.groundGrid || !t.groundTex || !t.surfGrid) { return; }
                 // Texture du MNS : si les bâtiments LoD2 sont là, une COPIE du MNS dont les emprises (élargies) prennent
                 // l'altitude du MNT ; surfGrid reste intact (le profil l'utilise). Refaite à chaque passe de résolution
                 // du MNS ou du MNT, à l'arrivée des bâtiments et quand la case est cochée ou décochée.
-                var masked = wantBld && !!t.bld;
-                var surfKey = t.surfGrid.size + (masked ? 'b' + t.groundGrid.size : '');
+                var masked = wantBld && !!t.bld, trees = wantVeg && !!t.veg;
+                // Les arbres s'ajoutent après les bâtiments : on retire aussi la canopée de la copie du MNS (cellules de végétation
+                // à plus de 2 m du sol, d'après les points classés végétation), et on détecte les arbres avec le MNT courant.
+                var surfKey = t.surfGrid.size + (masked ? 'b' + t.groundGrid.size : '') + (trees ? 'v' + t.groundGrid.size : '');
                 if (!t.surfTex || t.surfTexKey !== surfKey) {
                     var surfSource = t.surfGrid;
                     if (masked) {
                         try { surfSource = maskSurface(t.surfGrid, t.groundGrid, t.bld, _BLD_MARGIN).grid; }
                         catch (err) {   // la maquette doit rester celle d'avant : on abandonne les bâtiments de cette dalle
                             console.warn('[geo-lidar-hd] masquage des bâtiments de la dalle ' + t.name + ' impossible :', err);
-                            t.bld = null; t.bldMissing = true; masked = false; surfKey = t.surfGrid.size;
+                            t.bld = null; t.bldMissing = true; masked = false;
                         }
                     }
+                    t.treeData = null;
+                    if (trees) {
+                        try {
+                            var det = detectTrees(t.veg, t.groundGrid, [t.bbox[0], t.bbox[1]]);
+                            surfSource = removeCanopy(surfSource, t.groundGrid, t.veg, det.canopy).grid;
+                            t.treeData = det;
+                        } catch (err2) {   // idem : la dalle reste sans arbres
+                            console.warn('[geo-lidar-hd] arbres de la dalle ' + t.name + ' impossibles :', err2);
+                            t.veg = null; t.vegMissing = true; trees = false;
+                        }
+                    }
+                    surfKey = t.surfGrid.size + (masked ? 'b' + t.groundGrid.size : '') + (trees ? 'v' + t.groundGrid.size : '');
                     if (t.surfTex) { t.surfTex.dispose(); }
                     t.surfTex = _floatTexture(surfSource).tex; t.surfTexKey = surfKey;
                 }
@@ -1944,6 +2045,38 @@ angular
                     t.bldMesh.visible = masked;
                     t.bldMesh.updateMatrixWorld(true);
                 }
+                // Arbres 3D : deux maillages en instances (houppiers, troncs) qui partagent eux aussi les uniforms de la maquette.
+                if (trees && t.treeData && t.treeKey !== surfKey) {
+                    _disposeTrees(t);
+                    var td = t.treeData, n = td.n;
+                    if (n > 0) {
+                        var shared = { tTex: u.tTex, tInfo: u.tInfo, oTex: u.oTex, useOrtho: u.useOrtho, colorMode: u.colorMode, hagMax: u.hagMax, mixT: u.mixT, exag: u.exag, zRef: u.zRef };
+                        var crownMat = new ShaderMaterial({ vertexShader: _TREE_VS, fragmentShader: _TREE_FS, side: DoubleSide, uniforms: Object.assign({ uTrunk: { value: 0 } }, shared) });
+                        var trunkMat = new ShaderMaterial({ vertexShader: _TREE_VS, fragmentShader: _TREE_FS, side: DoubleSide, uniforms: Object.assign({ uTrunk: { value: 1 } }, shared) });
+                        var trunkGeo = new CylinderGeometry(0.22, 0.3, 1, 6);
+                        trunkGeo.rotateX(Math.PI / 2); trunkGeo.translate(0, 0, 0.5);   // axe vertical (z), de 0 à 1
+                        var crowns = new InstancedMesh(new IcosahedronGeometry(1, 1), crownMat, n), trunks = new InstancedMesh(trunkGeo, trunkMat, n);
+                        var m4 = new Matrix4(), qi = new Quaternion(), pv = new Vector3(), sv = new Vector3();
+                        for (var ti = 0; ti < n; ti++) {
+                            var tx = td.trees[6 * ti], ty = td.trees[6 * ti + 1], gz = td.trees[6 * ti + 2], zb = td.trees[6 * ti + 3], zt = td.trees[6 * ti + 4], tr = td.trees[6 * ti + 5];
+                            var half = Math.max(0.5, (zt - zb) / 2);   // demi-hauteur du houppier ; le tronc va du sol à sa base
+                            crowns.setMatrixAt(ti, m4.compose(pv.set(tx, ty, zt - half), qi, sv.set(tr, tr, half)));
+                            trunks.setMatrixAt(ti, m4.compose(pv.set(tx, ty, gz), qi, sv.set(1, 1, Math.max(0.001, zb - gz - 0.2))));
+                        }
+                        [crowns, trunks].forEach(function (im, idx) {
+                            im.frustumCulled = false;   // sommets déplacés par le shader
+                            im.name = 'geo-lidar-arbres-' + (idx ? 'troncs-' : 'houppiers-') + t.name;
+                            im.position.set(t.bbox[0], t.bbox[1], 0);
+                            _view.scene.add(im);
+                        });
+                        t.treeMesh = crowns; t.trunkMesh = trunks;
+                    }
+                    t.treeKey = surfKey;
+                }
+                if (t.treeMesh) {
+                    t.treeMesh.visible = t.trunkMesh.visible = trees;
+                    t.treeMesh.updateMatrixWorld(true); t.trunkMesh.updateMatrixWorld(true);
+                }
                 ready++;
             });
             var state = !m.on ? 'idle' : (total && ready === total ? 'ready' : 'loading');
@@ -1967,6 +2100,7 @@ angular
                 u.hagMax.value = hmax;
                 t.maqMesh.visible = !!m.on;
                 if (t.bldMesh) { t.bldMesh.visible = !!(m.on && m.buildings && t.bld); }
+                if (t.treeMesh) { t.treeMesh.visible = t.trunkMesh.visible = !!(m.on && m.trees && t.veg); }
             });
             _view.notifyChange(_view.camera.camera3D);
         }
@@ -2076,6 +2210,16 @@ angular
             _tiles = []; _layer = null; _main = null;
         }
 
+        // Retire les maillages d'arbres d'une dalle et libère leurs ressources (géométries, matériaux, tampons d'instances).
+        function _disposeTrees(t) {
+            [t.treeMesh, t.trunkMesh].forEach(function (im) {
+                if (!im) { return; }
+                if (im.parent) { im.parent.remove(im); }
+                im.geometry.dispose(); im.material.dispose(); im.dispose();
+            });
+            t.treeMesh = t.trunkMesh = null; t.treeKey = null;
+        }
+
         function _disposeTile(t) {
             try { if (_view) { _view.removeLayer(t.layer.id); } t.layer.delete(); } catch (e) { /* déjà retirée */ }
             if (t.orthoTex) { t.orthoTex.dispose(); }
@@ -2084,6 +2228,8 @@ angular
             if (t.maqMesh) { if (t.maqMesh.parent) { t.maqMesh.parent.remove(t.maqMesh); } t.maqMesh.material.dispose(); t.maqMesh = null; }
             if (t.bldMesh) { if (t.bldMesh.parent) { t.bldMesh.parent.remove(t.bldMesh); } t.bldMesh.geometry.dispose(); t.bldMesh.material.dispose(); t.bldMesh = null; }
             t.bld = null;
+            _disposeTrees(t);
+            t.veg = null; t.treeData = null;
             t.layer = null; t.orthoTex = null; t.orthoPix = null; t.groundTex = null; t.groundGrid = null; t.surfGrid = null; t.surfTex = null;
         }
 

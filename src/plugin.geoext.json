@@ -109,6 +109,15 @@
           "required": false,
           "type": "STRING",
           "defaultValue": ""
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "URL de la végétation 3D (prototype)",
+          "description": "Dossier de fichiers statiques <dalle>.veg (ex. 0846-6494.veg) contenant la canopée issue des points classés végétation du LiDAR HD, produits par scripts/vegetation du module. Active la case « Arbres » du panneau Maquette : les cônes de la végétation du MNS sont remplacés par des arbres en volumes simples (houppier et tronc). Doit autoriser le CORS. Laisser vide pour désactiver la fonction (comportement inchangé) ; une dalle sans fichier reste inchangée.",
+          "key": "vegetationUrl",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": ""
         }
       ]
     },

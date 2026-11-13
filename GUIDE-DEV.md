@@ -13,6 +13,7 @@ Fonctionnement interne, vérifications réalisées et pistes d'évolution. Pour 
 - [Dalles voisines (9 dalles)](#dalles-voisines-9-dalles)
 - [Rendu](#rendu)
 - [Bâtiments LoD2](#bâtiments-lod2)
+- [Arbres](#arbres)
 - [Navigation 3D](#navigation-3d)
 - [Pointage dans le nuage](#pointage-dans-le-nuage)
 - [Vérifications](#vérifications)
@@ -167,6 +168,53 @@ en pente (`slanted`) viennent de la dalle réelle.
   de plus (la texture du MNS est remplacée, pas ajoutée) ; la fluidité vient donc surtout de la maquette elle-même. Les
   images par seconde n'ont été mesurées sur aucune carte graphique ;
 - les altitudes de roofer sont celles du nuage (IGN69), comme le MNT : le module ne les recale pas.
+
+## Arbres
+
+Prototype. La végétation du MNS est dessinée en cônes bruités. Avec le réglage `vegetationUrl`, le module lit pour chaque dalle un
+fichier `<dalle>.veg` (la canopée issue des points classés végétation du LiDAR HD), repère les arbres, retire la végétation de la copie
+du MNS et dessine à la place un houppier et un tronc par arbre. Sans le réglage, rien n'est chargé ni modifié. La case « Arbres » du
+panneau Maquette n'existe que si le réglage est renseigné.
+
+**Pipeline** (hors navigateur, `scripts/vegetation/README.md`) : nuage COPC → PDAL (Docker, deux passes) → deux grilles de 1 m →
+`scripts/vegetation/pack_veg.py` → un `.veg` par dalle. Mesuré sur la dalle 0846-6494 : ~13 s par passe PDAL, 923 Ko par `.veg`.
+PDAL ne sert qu'à lire les classes du COPC, que rien d'autre ne sait lire ici sans nouvelle dépendance ; roofer ne traite que les
+bâtiments.
+
+**Format `.veg`** (little-endian ; dalle « XXXX-YYYY » = coin nord-ouest en km Lambert-93) :
+
+| Section | Contenu |
+|---|---|
+| En-tête, 48 octets | `"VEG1"`, uint32 `size` (cellules par côté), `bands`, `flags` (1 = charge utile compressée en deflate), float32 `step` (m), `zMin`, `zRes` (0,1 m), un réservé, float64 `originX`, `originY` (bord ouest et bord nord de la grille, Lambert-93) |
+| Charge utile | `bands` x `size` x `size` uint16, ligne 0 au nord. Valeur 0 = pas de donnée, sinon altitude NGF = `zMin + (v - 1) * zRes`. Compressée en deflate (format zlib) si `flags & 1` |
+
+Bande 0 : altitude maximale des points de classes 3 à 5. Bande 1 : altitude minimale des points de classe 5. D'autres bandes pourront
+s'ajouter (`bands` est lu dans l'en-tête). `parseVeg` (`src/js/vegetation.js`) refuse un fichier dont la signature, l'en-tête ou la taille
+sont incohérents, et le module ignore un fichier dont la grille n'est pas celle de la dalle (origine, 1000 m de côté).
+
+**Détection** (`detectTrees`, testée dans `test/vegetation.test.mjs`) : une cellule est de la canopée si son sommet dépasse le MNT de
+plus de 2 m ; hauteurs lissées (moyenne normalisée 3x3), cimes = maxima locaux sur 5x5 d'au moins 3 m ; rayon du houppier = distance
+moyenne sur 8 directions jusqu'à ce que la canopée tombe sous la moitié de la cime (au plus 7 m), borné par 0,6 fois la distance à la
+cime voisine ; base du houppier = bande 1 si elle existe, sinon le sol (pas de tronc). 3 399 arbres sur la dalle 0846-6494, 74 ms.
+**Rendu** (`_TREE_VS`, `_TREE_FS`, `_maquetteUpdate`) : deux `InstancedMesh` par dalle (houppiers : icosphère aplatie ; troncs :
+cylindre) dont les matériaux partagent les uniforms de la maquette ; le vertex shader pose chaque arbre au sol (MNT), le fait monter et
+grossir avec le curseur (à 0, il a disparu), suit l'exagération du relief, et prend la couleur de l'orthophoto à son pied (éclaircie,
+variation d'un arbre à l'autre). `removeCanopy` retire les cellules de canopée de la copie du MNS (après le masquage des bâtiments ; les
+mailles du MNS et de la canopée peuvent différer). La texture est refaite à chaque passe de résolution du MNT ou du MNS. Un fichier
+absent (404) ou invalide laisse la dalle comme sans le réglage.
+
+**Limites connues**
+
+- les formes sont des boules : pas de conifères, pas de haies continues (une haie de moins de 3 m d'épaisseur de canopée devient un
+  alignement de petits arbres, sous 2 m elle n'est pas retirée) ;
+- les cimes sont des maxima locaux : des houppiers qui se touchent peuvent être fusionnés ou doublés ; aucune vérité terrain ;
+- la couleur vient de l'orthophoto au pied de l'arbre, parfois du sol (asphalte) et non du feuillage ;
+- les 10 % de cellules hautes sans point de végétation (ponts, bâtiments non reconstruits) restent en rampes ;
+- sans les bâtiments LoD2, une cellule où un arbre déborde sur un toit est retirée du MNS comme le reste de la canopée : le toit y
+  perd sa rampe (avec les bâtiments, c'est le maillage LoD2 qui dessine le toit) ;
+- une base mesurée sur la classe 5 seule limite les troncs à environ 1,5 m et plus ;
+- l'image PDAL fait 4 Go ; le module lui-même n'en dépend pas ;
+- performances : détection de ~3 400 arbres en 74 ms par dalle sous Node ; images par seconde non mesurées sur une carte graphique.
 
 ## Navigation 3D
 

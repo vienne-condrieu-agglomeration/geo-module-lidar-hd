@@ -6,6 +6,8 @@ dans un vrai GEO. Pipeline et format : [`../README.md`](../README.md) et `GUIDE-
 | Fichier | Rôle |
 |---|---|
 | `prepare.sh` | télécharge le nuage LiDAR HD et les emprises BD TOPO d'une ou plusieurs dalles, lance roofer (Docker), convertit en `bld/<dalle>.bld` |
+| `prepare-veg.sh` | lit le nuage COPC avec PDAL (Docker) et produit `bld/<dalle>.veg` (canopée) : voir « Arbres » ci-dessous |
+| `lib.sh` | fonctions communes aux deux scripts (liste de dalles, téléchargement du COPC) |
 | `serve.py` | sert `bld/` sur `http://localhost:8777` avec CORS (lecture seule, écoute sur 127.0.0.1) |
 | `work/`, `bld/` | produits, ignorés par git |
 
@@ -86,6 +88,22 @@ Ce qu'il faut vérifier, et noter :
 
 Console du navigateur (F12) : un fichier absent ne doit rien afficher ; une erreur affiche une seule ligne
 `[geo-lidar-hd] bâtiments LoD2 de la dalle … ignorés (URL) : …`. Onglet Réseau : un seul `0846-6494.bld` en 200 par dalle.
+
+## Arbres
+
+Les arbres 3D demandent une autre préparation : PDAL (image Docker de ~4 Go, figée par empreinte) lit les points classés
+« végétation ». Roofer ne sert pas ici.
+
+```bash
+./prepare-veg.sh                       # la dalle 0846-6494 : ~30 s si le COPC est déjà là (partagé avec prepare.sh)
+./prepare-veg.sh around 0846-6494      # la dalle et ses 8 voisines
+```
+
+Les `.veg` vont dans le même dossier `bld/` que les `.bld` (même serveur). Dans le Générateur, renseigner **URL de la végétation 3D
+(prototype)** (`vegetationUrl`) avec la même URL que pour les bâtiments, par exemple `http://localhost:8777`. La case **Arbres**
+apparaît alors dans le panneau Maquette, à côté de « Bâtiments LoD2 » ; les deux fonctionnent indépendamment, mais le rendu est
+meilleur avec les deux : sans les bâtiments, les maisons restent en rampes, et un arbre qui déborde sur un toit retire aussi la rampe de ce toit à cet endroit. Sur la dalle 0846-6494 : 3 399 arbres, 923 Ko.
+Détails : `../../vegetation/README.md`.
 
 ## Mesurer la fluidité
 

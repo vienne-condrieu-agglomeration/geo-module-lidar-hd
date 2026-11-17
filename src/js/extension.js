@@ -98,7 +98,16 @@ Fetcher.arrayBuffer = function (url, options) {
 
 // Lecteur des rasters MNT / MNS / MNH des dalles (voir raster.js). Il passe par le fetcher ci-dessus :
 // même concurrence limitée et mêmes reprises sur 429 que le nuage de points.
-var _rasters = createRasterReader(function (url) { return Fetcher.arrayBuffer(url); });
+// Le WMS de l'IGN répond parfois par une erreur ponctuelle (400, 500…) à une requête qui réussit au coup suivant : sans reprise, la dalle
+// concernée restait sans MNT ou sans MNS, donc absente de la maquette. Trois reprises espacées, sauf si la vue a changé entre-temps.
+function _rasterFetch(url, attempt) {
+    return Fetcher.arrayBuffer(url).catch(function (err) {
+        if ((attempt || 0) >= 3) { throw err; }
+        return new Promise(function (res) { setTimeout(res, 600 * Math.pow(2, attempt || 0) + Math.random() * 300); })
+            .then(function () { return _rasterFetch(url, (attempt || 0) + 1); });
+    });
+}
+var _rasters = createRasterReader(function (url) { return _rasterFetch(url, 0); });
 
 // Icônes Lucide (https://lucide.dev, licence ISC), en SVG inline : elles prennent la couleur du texte.
 var _ICONS = {
@@ -1953,6 +1962,11 @@ angular
             var sc = _currentScope, m = sc && sc.maq;
             if (!_view || !m) { return; }
             var ready = 0, total = 0;
+            // Référence de l'exagération du relief : UNE seule pour toutes les dalles (la plus basse). Avec le minimum de chaque dalle,
+            // deux dalles voisines s'écartaient verticalement à leur jonction dès que le relief dépassait ×1 (fentes blanches).
+            var zRef = Infinity;
+            _tiles.forEach(function (t) { if (t.bbox && isFinite(t.groundMin) && t.groundMin < zRef) { zRef = t.groundMin; } });
+            if (!isFinite(zRef)) { zRef = 0; }
             _tiles.forEach(function (t) {
                 if (!t.bbox) { return; }
                 total++;
@@ -2020,7 +2034,7 @@ angular
                 u.tTex.value = t.groundTex; u.tInfo.value.set(tg.x0 - t.bbox[0], tg.y0 - t.bbox[1], tg.step, tg.size);
                 u.sTex.value = t.surfTex;   u.sInfo.value.set(sg.x0 - t.bbox[0], sg.y0 - t.bbox[1], sg.step, sg.size);
                 if (t.orthoTex) { u.oTex.value = t.orthoTex; }
-                u.zRef.value = isFinite(t.groundMin) ? t.groundMin : 0;
+                u.zRef.value = zRef;
                 mesh.visible = true;
                 mesh.updateMatrixWorld(true);   // scene.matrixWorldAutoUpdate est désactivé par iTowns
                 // Bâtiments LoD2 : un maillage à côté de celui de la maquette, dont le matériau PARTAGE ses objets uniforms

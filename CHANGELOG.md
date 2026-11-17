@@ -11,6 +11,13 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+## [1.2.1] — 2026-11-17
+
+### Corrigé
+
+- Maquette : les dalles voisines se raccordent désormais quand on exagère le relief, sans fentes blanches entre elles
+- Maquette : une dalle dont le relief n'a pas pu être lu au premier essai est relue automatiquement, au lieu de manquer dans la maquette
+
 ## [1.2.0] — 2026-11-13
 
 ### Ajouté

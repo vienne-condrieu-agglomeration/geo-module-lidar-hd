@@ -28,7 +28,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "URL du WFS des dalles",
-          "description": "Service WFS publiant l'index des dalles LiDAR HD (couche IGNF_LIDAR-HD_METADONNEE:metadata, dont le champ url_npl pointe le fichier COPC). Doit autoriser le CORS et les requêtes Range.",
+          "description": "Service WFS publiant l'index des dalles LiDAR HD (couche IGNF_LIDAR-HD_METADONNEE:metadata, dont le champ url_npl pointe le fichier COPC). Par défaut : WFS de la Géoplateforme de l'IGN. Doit autoriser le CORS et les requêtes Range.",
           "key": "wfsUrl",
           "required": true,
           "type": "STRING",
@@ -37,7 +37,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "Budget de points",
-          "description": "Nombre maximal de points affichés simultanément, toutes dalles confondues. Plus il est élevé, plus le rendu est fin mais lourd pour le GPU et le réseau.",
+          "description": "Nombre maximal de points affichés simultanément, toutes dalles confondues : plus il est élevé, plus le rendu est fin mais lourd pour le GPU et le réseau. Par défaut : 2 000 000.",
           "key": "pointBudget",
           "required": false,
           "type": "NUMBER",
@@ -49,7 +49,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "Charger les dalles voisines",
-          "description": "Après la dalle cliquée, charge en arrière-plan les 8 dalles qui l'entourent (9 km² au total). Le budget de points est partagé entre les dalles. À décocher sur des postes modestes ou une connexion lente. C'est la valeur par défaut du bouton « Voisines » du panneau : chaque utilisateur peut la changer, son choix est mémorisé dans son navigateur.",
+          "description": "Charge en arrière-plan les 8 dalles qui entourent la dalle cliquée (9 km² au total), avec un budget de points partagé. C'est la valeur par défaut du bouton « Voisines » du panneau : chaque utilisateur peut la changer, son choix est mémorisé dans son navigateur. Par défaut : coché. À décocher sur des postes modestes ou une connexion lente.",
           "key": "neighbourTiles",
           "required": false,
           "type": "BOOLEAN",
@@ -57,8 +57,32 @@
         },
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Projections proposées",
+          "description": "Projections proposées pour le pointage, l'export du terrain et le DXF 3D du profil : codes séparés par des virgules, le premier étant le choix par défaut. Codes acceptés : EPSG:2154 (Lambert-93), EPSG:3942 à EPSG:3950 (CC42 à CC50), EPSG:4326 (WGS84). Par défaut : EPSG:2154, EPSG:3942 à EPSG:3950 puis EPSG:4326. Un code inconnu est ignoré ; une liste vide reprend les valeurs par défaut.",
+          "key": "crsList",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": "EPSG:2154,EPSG:3942,EPSG:3943,EPSG:3944,EPSG:3945,EPSG:3946,EPSG:3947,EPSG:3948,EPSG:3949,EPSG:3950,EPSG:4326"
+        }
+      ]
+    },
+    {
+      "@type": "com.bg.functionality.canvas.configuration.ConfigurationGroup",
+      "name": "Coloration par orthophoto (WMS)",
+      "elements": [
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Colorer par orthophoto",
+          "description": "Propose le mode de couleurs « Orthophoto » : chaque point prend la couleur de l'orthophoto du service WMS ci-dessous. Par défaut : coché. À décocher pour s'en passer, par exemple sur un réseau sans accès au service ; le LiDAR HD classifié n'a pas de couleurs propres.",
+          "key": "orthoEnabled",
+          "required": false,
+          "type": "BOOLEAN",
+          "defaultValue": true
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "URL du WMS d'orthophotos",
-          "description": "Service WMS (couche ORTHOIMAGERY.ORTHOPHOTOS, EPSG:2154, CORS) utilisé pour colorer les points avec l'orthophoto IGN. Laisser vide pour désactiver ce mode.",
+          "description": "Service WMS d'orthophotos qui colore les points (EPSG:2154, CORS, sans authentification dans le navigateur). Par défaut : WMS-R de la Géoplateforme de l'IGN, repris aussi si le champ est vidé. Autres exemples : https://tiles.craig.fr/ortho (CRAIG) ou un espace de travail GeoServer (https://hôte/geoserver/espace/wms).",
           "key": "orthoWmsUrl",
           "required": false,
           "type": "STRING",
@@ -66,8 +90,17 @@
         },
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
+          "name": "Couche WMS d'orthophotos",
+          "description": "Couche du WMS ci-dessus utilisée au départ. Par défaut : ORTHOIMAGERY.ORTHOPHOTOS (orthophotographie de l'IGN), reprise aussi si le champ est vidé. Si le service en propose plusieurs, l'utilisateur peut en choisir une autre dans le panneau Style : la liste est lue dans le GetCapabilities du service (couches servies en EPSG:2154).",
+          "key": "orthoLayer",
+          "required": false,
+          "type": "STRING",
+          "defaultValue": "ORTHOIMAGERY.ORTHOPHOTOS"
+        },
+        {
+          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "Résolution maximale de l'orthophoto",
-          "description": "Taille maximale (en pixels, pour une dalle de 1 km) de l'orthophoto qui colore les points. Le mode Orthophoto est disponible dès la première passe (1024 px) ; chaque passe plus fine la remplace ensuite : 2048 px ≈ 0,5 m/pixel, 4096 px ≈ 0,24 m/pixel (un pixel par point, mais ~14 s et ~2,3 Mo de plus par dalle sur le WMS de l'IGN, qui limite le débit).",
+          "description": "Taille maximale (en pixels, pour une dalle de 1 km) de l'orthophoto qui colore les points. La première passe (1024 px) rend le mode Orthophoto disponible tout de suite ; chaque passe plus fine la remplace : 2048 px ≈ 0,5 m/pixel, 4096 px ≈ 0,24 m/pixel (un pixel par point, mais ~14 s et ~2,3 Mo de plus par dalle sur le WMS de l'IGN, qui limite le débit). Par défaut : 4096. Un service qui refuse les grandes images garde la passe précédente.",
           "key": "orthoMaxSize",
           "required": false,
           "type": "ENUMERATED",
@@ -82,20 +115,17 @@
             "4096 px (détaillé)"
           ],
           "defaultValue": "4096"
-        },
-        {
-          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
-          "name": "Projections proposées",
-          "description": "Projections proposées pour le pointage, l'export du terrain et le DXF 3D du profil : codes séparés par des virgules, le premier étant le choix par défaut. Codes acceptés : EPSG:2154 (Lambert-93), EPSG:3942 à EPSG:3950 (CC42 à CC50), EPSG:4326 (WGS84). Un code inconnu est ignoré ; une liste vide reprend les valeurs par défaut.",
-          "key": "crsList",
-          "required": false,
-          "type": "STRING",
-          "defaultValue": "EPSG:2154,EPSG:3942,EPSG:3943,EPSG:3944,EPSG:3945,EPSG:3946,EPSG:3947,EPSG:3948,EPSG:3949,EPSG:3950,EPSG:4326"
-        },
+        }
+      ]
+    },
+    {
+      "@type": "com.bg.functionality.canvas.configuration.ConfigurationGroup",
+      "name": "Maquette 3D",
+      "elements": [
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "URL des données 3D de la ville (prototype)",
-          "description": "Dossier de base de fichiers statiques pour la maquette : <URL>/buildings/<dalle>.bld (bâtiments LoD2 reconstruits par roofer) et <URL>/vegetation/<dalle>.veg (canopée issue des points classés végétation), produits par scripts/city3d du module. Active, dans le panneau Maquette, les cases « Bâtiments LoD2 » et « Arbres » (selon les deux interrupteurs ci-dessous) : les bâtiments et les arbres reconstruits remplacent les rampes du MNS. Doit autoriser le CORS. Laisser vide pour désactiver la fonction (comportement inchangé) ; une dalle sans fichier reste inchangée.",
+          "description": "Dossier de base de fichiers statiques pour la maquette : <URL>/buildings/<dalle>.bld (bâtiments LoD2 reconstruits par roofer) et <URL>/vegetation/<dalle>.veg (canopée issue des points classés végétation), produits par scripts/city3d du module. Les bâtiments et les arbres reconstruits remplacent les rampes du MNS (cases « Bâtiments LoD2 » et « Arbres » du panneau Maquette, selon les deux interrupteurs ci-dessous). Par défaut : vide. Doit autoriser le CORS ; une dalle sans fichier reste inchangée. Laisser vide pour désactiver la fonction.",
           "key": "city3dUrl",
           "required": false,
           "type": "STRING",
@@ -104,7 +134,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "Activer les bâtiments LoD2",
-          "description": "Propose la case « Bâtiments LoD2 » du panneau Maquette (fichiers <URL des données 3D>/buildings/<dalle>.bld). Sans effet si l'URL des données 3D est vide.",
+          "description": "Propose la case « Bâtiments LoD2 » du panneau Maquette (fichiers <URL des données 3D>/buildings/<dalle>.bld). Par défaut : coché. Sans effet si l'URL des données 3D est vide.",
           "key": "buildingsEnabled",
           "required": false,
           "type": "BOOLEAN",
@@ -113,7 +143,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "Activer les arbres 3D",
-          "description": "Propose la case « Arbres » du panneau Maquette (fichiers <URL des données 3D>/vegetation/<dalle>.veg) : les cônes de la végétation du MNS sont remplacés par des arbres en volumes simples. Sans effet si l'URL des données 3D est vide.",
+          "description": "Propose la case « Arbres » du panneau Maquette (fichiers <URL des données 3D>/vegetation/<dalle>.veg) : des arbres en volumes simples remplacent les cônes de la végétation du MNS. Par défaut : coché. Sans effet si l'URL des données 3D est vide.",
           "key": "treesEnabled",
           "required": false,
           "type": "BOOLEAN",
@@ -128,7 +158,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "Libellé de l'onglet",
-          "description": "Libellé de l'onglet LiDAR HD dans la barre latérale droite (affiché au survol de son icône).",
+          "description": "Libellé de l'onglet LiDAR HD dans la barre latérale droite (affiché au survol de son icône). Par défaut : LiDAR HD.",
           "key": "toolName",
           "required": false,
           "type": "STRING",

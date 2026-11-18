@@ -15,6 +15,7 @@ import {
 import workerSource from '../../build/las-worker.js';
 import { createRasterReader } from './raster.js';
 import { createDiskCache } from './disk-cache.js';
+import { parseWmsLayers, capabilitiesUrl } from './wms-capabilities.js';
 import { parseBld, maskSurface } from './buildings.js';
 import { parseVeg, detectTrees, removeCanopy } from './vegetation.js';
 import { city3dUrls } from './city3d.js';
@@ -180,7 +181,8 @@ angular
             name: pluginConf.name, title: pluginConf.displayName, version: pluginConf.version,
             markdown: changelogMd, prefix: 'geo-lidar'
         });
-        var _orthoWmsUrl = 'https://data.geopf.fr/wms-r/wms';   // vide = pas de coloration par orthophoto
+        var _orthoWmsUrl = 'https://data.geopf.fr/wms-r/wms';   // vide (case « Colorer par orthophoto » décochée) = pas de coloration par orthophoto
+        var _orthoLayer  = 'ORTHOIMAGERY.ORTHOPHOTOS';          // couche WMS par défaut (réglage « orthoLayer »)
         var _orthoMaxSize = 4096;                               // résolution maximale de l'orthophoto (px)
         var _buildingsUrl = '';                                 // dossier des <dalle>.bld = <city3dUrl>/buildings si buildingsEnabled ; vide = désactivé
         // Marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS : 1 m, puis 0,1 m par mètre de hauteur au-delà
@@ -223,9 +225,9 @@ angular
             var config = geoApplication.getConfigurationByExtensionKey(pluginConf.name);
             if (config && config.length > 0) {
                 var props = config[0].properties;
-                _wfsUrl      = (props.wfsUrl || _wfsUrl).trim();
+                _wfsUrl      = String(props.wfsUrl || '').trim() || _wfsUrl;   // champ vidé (ou d'espaces) : valeur par défaut de l'IGN
                 _pointBudget = parseInt(props.pointBudget, 10) || _pointBudget;
-                _toolName    = props.toolName || _toolName;
+                _toolName    = String(props.toolName || '').trim() || _toolName;
                 var crs = parseCrsList(props.crsList);
                 _CRS_LIST = crs.items;
                 if (crs.unknown.length) { console.warn('[geo-lidar-hd] projections inconnues ignorées :', crs.unknown.join(', ')); }
@@ -233,9 +235,9 @@ angular
                 var maxSize = parseInt(props.orthoMaxSize, 10);
                 if ([1024, 2048, 4096].indexOf(maxSize) !== -1) { _orthoMaxSize = maxSize; }
                 _neighbours = props.neighbourTiles !== false;
-                if (props.orthoWmsUrl !== undefined && props.orthoWmsUrl !== null) {
-                    _orthoWmsUrl = String(props.orthoWmsUrl).trim();
-                }
+                // Champ vidé : WMS de l'IGN, comme les autres réglages. La coloration par orthophoto se désactive par sa case.
+                _orthoWmsUrl = props.orthoEnabled === false ? '' : (String(props.orthoWmsUrl || '').trim() || _orthoWmsUrl);
+                if (props.orthoLayer && String(props.orthoLayer).trim()) { _orthoLayer = String(props.orthoLayer).trim(); }
                 // Données 3D de la ville : un dossier de base (city3dUrl) et un interrupteur par fonction (voir city3d.js).
                 var urls3d = city3dUrls(props);
                 _buildingsUrl = urls3d.buildings; _vegetationUrl = urls3d.vegetation;
@@ -318,6 +320,8 @@ angular
                 '  <div class="geo-lidar-panel geo-lidar-panel--style" ng-if="ui.panelOpen && tile">',
                 '    <div class="geo-lidar-panel-title">Style du nuage',
                 '      <button class="geo-lidar-x" ng-click="startTour(\'style\')" title="Visite guidée du style du nuage" aria-label="Visite guidée du style du nuage">' + _icon('circle-help') + '</button></div>',
+                '    <div class="geo-lidar-row geo-lidar-row--olayer" ng-if="ortho.layers.length > 1 || (ortho.layers.length === 1 && ortho.layers[0].name !== ortho.layer)"><span>Orthophoto</span>',
+                '      <select ng-model="ortho.layer" ng-options="l.name as l.title for l in ortho.layers" ng-change="setOrthoLayer()" title="Couche du WMS d\'orthophotos (liste lue dans son GetCapabilities, EPSG:2154)"></select></div>',
                 '    <div class="geo-lidar-row"><span>Forme</span>',
                 '      <select ng-model="style.shape" ng-change="applyStyle()"><option value="0">Cercle</option><option value="1">Carré</option></select></div>',
                 '    <div class="geo-lidar-row geo-lidar-row--size"><span>Taille</span>',
@@ -379,7 +383,7 @@ angular
                 '      <div class="geo-lidar-mnt-text geo-lidar-mnt-hint">Cadastre PCI Vecteur (DGFiP) diffusé par Etalab, Licence Ouverte : tracé indicatif, sans valeur de bornage. {{ mntCad.lift ? \'Altitude : point le plus haut du MNT + \' + (mntCad.liftM || 0) + \' m.\' : \'Altitude : Z = 0.\' }}</div>',
                 '    </div>',
                 '    <div class="geo-lidar-row geo-lidar-row--ortho"><span>Orthophoto</span>',
-                '      <input type="checkbox" ng-model="mntOrtho.on" ng-disabled="mnt.state === \'running\' || mnt.crs === \'EPSG:4326\'" title="Livrer aussi l\'orthophoto IGN de l\'emprise, en GeoTIFF géoréférencé dans la projection choisie"></div>',
+                '      <input type="checkbox" ng-model="mntOrtho.on" ng-disabled="mnt.state === \'running\' || mnt.crs === \'EPSG:4326\'" title="Livrer aussi l\'orthophoto de l\'emprise, en GeoTIFF géoréférencé dans la projection choisie"></div>',
                 '    <div ng-if="mntOrtho.on && mnt.crs !== \'EPSG:4326\'">',
                 '      <div class="geo-lidar-row"><span>Résolution</span>',
                 '        <select ng-model="mntOrtho.res" ng-options="r.res as r.label for r in mntOrthoRes" ng-disabled="mnt.state === \'running\'"></select></div>',
@@ -432,7 +436,7 @@ angular
                 '        <button class="geo-lidar-btn geo-lidar-btn--small" ng-class="{\'geo-lidar-btn--on\': maq.anim}" ng-click="maqAnimate()" title="Faire glisser le curseur de la surface au terrain nu, puis retour">{{ maq.anim ? \'Arrêter\' : \'Animer\' }}</button>',
                 '      </div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-tex"><span>Texture</span>',
-                '        <select ng-model="maq.color" ng-change="applyMaq()"><option value="ortho">Orthophoto IGN</option><option value="height">Hauteur au sol</option><option value="grey">Grise (relief seul)</option></select></div>',
+                '        <select ng-model="maq.color" ng-change="applyMaq()"><option value="ortho">Orthophoto</option><option value="height">Hauteur au sol</option><option value="grey">Grise (relief seul)</option></select></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-relief"><span>Relief</span>',
                 '        <input type="range" min="1" max="3" step="0.5" ng-model="maq.exag" ng-change="applyMaq()" title="Exagération verticale"><em>×{{ maq.exag }}</em></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-bld" ng-if="bldEnabled"><span>Bâtiments LoD2</span>',
@@ -646,6 +650,7 @@ angular
                 '    <span ng-if="tile.dateEdition" title="Date de mise à disposition du nuage de points classifié, dont sont dérivés le MNT et le MNS">Publication : {{ frDate(tile.dateEdition) }}<br></span>',
                 '    <span ng-if="tile.mission">Mission {{ tile.mission }}<br></span>',
                 '    <span ng-if="around">{{ aroundLabel() }}<br></span>',
+                '    <div class="geo-lidar-info-warn" ng-if="ui.orthoError">{{ ui.orthoError }}<span ng-if="ortho.layers.length > 1"> Choisissez une autre couche dans « Style ».</span></div>',
                 '    <a ng-href="{{ tile.url }}" target="_blank" rel="noopener">Télécharger le COPC</a>',
                 '    <div class="geo-lidar-info-cache" ng-if="diskCache">Cache disque : {{ diskCache.text }}',
                 '      <button class="geo-lidar-link" ng-click="clearDiskCache()" ng-disabled="!diskCache.count" title="Supprime les données LiDAR et rasters conservées par le navigateur : elles seront retéléchargées au prochain chargement">Vider</button></div>',
@@ -778,6 +783,16 @@ angular
                                      gamma: 1, ambient: 0, opacity: 1, sse: 2, budget: _pointBudget / 1e6, bg: 'light',
                                      altOn: false, altLo: 0, altHi: 1, altMin: 0, altMax: 1,
                                      hagColorMax: 30, hagOn: false, hagLo: -2, hagHi: 60, hagFrom: -2, hagTo: 60 };
+                // Couche d'orthophoto : liste lue dans le GetCapabilities du WMS, sélecteur dans le panneau Style.
+                $scope.ortho = { layers: [], layer: _orthoLayerCurrent() };
+                _orthoLayerList().then(function (list) {
+                    $scope.$evalAsync(function () { $scope.ortho.layers = list; });
+                });
+                $scope.setOrthoLayer = function () {
+                    _saveOrthoLayer($scope.ortho.layer);
+                    $scope.ui.orthoError = null;
+                    _reloadOrtho();
+                };
                 // Cache disque : taille affichée dans l'encart d'informations de la dalle, et lien pour le vider.
                 $scope.diskCache = null;
                 function _refreshDiskCache() {
@@ -1485,7 +1500,7 @@ angular
 
         function _modeList(ui) {
             var list = [];
-            if (ui.orthoReady) { list.push({ id: 'ORTHO', label: 'Orthophoto IGN' }); }
+            if (ui.orthoReady) { list.push({ id: 'ORTHO', label: 'Orthophoto' }); }
             if (ui.hasColor)   { list.push({ id: 'COLOR', label: 'RVB (données)' }); }
             return list.concat([
                 { id: 'CLASSIFICATION', label: 'Classification' },
@@ -1499,7 +1514,7 @@ angular
 
         function _profileModeList(ui) {
             var list = [{ id: 'CLASSIFICATION', label: 'Classification' }, { id: 'ELEVATION', label: 'Altitude' }];
-            if (ui.orthoReady) { list.unshift({ id: 'ORTHO', label: 'Orthophoto IGN' }); }
+            if (ui.orthoReady) { list.unshift({ id: 'ORTHO', label: 'Orthophoto' }); }
             return list;
         }
 
@@ -1573,7 +1588,7 @@ angular
             _view.notifyChange(_layer);
         }
 
-        // Coloration par l'orthophoto IGN : le LiDAR HD classifié n'a pas de RVB. On ajoute au vertex shader
+        // Coloration par l'orthophoto : le LiDAR HD classifié n'a pas de RVB. On ajoute au vertex shader
         // d'iTowns une texture plaquée sur l'emprise de la dalle (échantillonnée à la position XY de chaque point).
         // Retourne false si le shader d'iTowns n'a pas la forme attendue (le mode Orthophoto est alors absent).
         function _patchOrthoShader(material) {
@@ -2484,34 +2499,106 @@ angular
         // 4096 px (~14 s, ~0,24 m/px, un pixel par point). Chaque passe remplace la précédente.
         // Lancé dès que le WFS a répondu, en parallèle de la lecture du COPC.
         var _ORTHO_SIZES = [1024, 2048, 4096];
+
+        // Couche d'orthophoto utilisée : le choix de l'utilisateur (mémorisé pour ce service WMS), sinon le réglage du générateur.
+        var _ORTHO_LAYER_KEY = 'geo-lidar-hd-ortho-layer';
+        var _orthoGen = 0;   // change à chaque changement de couche : les images en route de l'ancienne couche sont ignorées
+        function _orthoLayerCurrent() {
+            var v = null;
+            try { v = window.localStorage.getItem(_ORTHO_LAYER_KEY); } catch (e) { /* stockage indisponible */ }
+            var i = v ? v.indexOf('\n') : -1;
+            return (i > 0 && v.slice(0, i) === _orthoWmsUrl && v.slice(i + 1)) ? v.slice(i + 1) : _orthoLayer;
+        }
+        function _saveOrthoLayer(name) {
+            try { window.localStorage.setItem(_ORTHO_LAYER_KEY, _orthoWmsUrl + '\n' + name); } catch (e) { /* stockage indisponible */ }
+        }
+        // Requête GetMap de l'orthophoto (EPSG:2154 pour le nuage de points, projection au choix pour l'export).
+        function _orthoGetMap(layer, bbox, w, h, crs, format) {
+            return _orthoWmsUrl + (_orthoWmsUrl.indexOf('?') === -1 ? '?' : '&') +
+                'SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=' + encodeURIComponent(layer) + '&STYLES=&CRS=' + crs +
+                '&BBOX=' + bbox + '&WIDTH=' + w + '&HEIGHT=' + h + '&FORMAT=' + format;
+        }
+        // Couches du service qui acceptent EPSG:2154, lues dans son GetCapabilities (une seule fois par session).
+        var _orthoCaps = null;
+        function _orthoLayerList() {
+            if (!_orthoWmsUrl) { return Promise.resolve([]); }
+            if (!_orthoCaps || _orthoCaps.url !== _orthoWmsUrl) {
+                var url = _orthoWmsUrl;
+                _orthoCaps = {
+                    url: url,
+                    promise: fetch(capabilitiesUrl(url)).then(function (r) {
+                        if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                        return r.text();
+                    }).then(function (xml) { return parseWmsLayers(xml, 'EPSG:2154'); }).catch(function (err) {
+                        console.warn('[geo-lidar-hd] GetCapabilities du WMS d\'orthophotos illisible :', err && err.message || err);
+                        return [];
+                    })
+                };
+            }
+            return _orthoCaps.promise;
+        }
+
+        // Orthophoto indisponible : le mode « Orthophoto » n'apparaît pas, ce qui ne dit pas pourquoi. On l'écrit dans l'encart
+        // d'informations (rouvert pour l'occasion, sans toucher au choix mémorisé de l'utilisateur).
+        function _orthoFailed(tile, layerName) {
+            tile.orthoFailed = layerName;
+            if (tile !== _main || !_currentScope) { return; }
+            var sc = _currentScope;
+            sc.$applyAsync(function () { sc.ui.orthoError = _orthoErrorText(layerName); sc.ui.infoOpen = true; });
+        }
+        function _orthoErrorText(layerName) {
+            return 'Orthophoto indisponible : la couche « ' + layerName + ' » n\'a pas répondu (nom inconnu, EPSG:2154 non servi ou service inaccessible).';
+        }
+
         function _startOrtho(tile, seq, maxSize) {
             if (!_orthoWmsUrl || !_view || !tile.bbox) { return; }
-            var bb = tile.bbox;
+            var bb = tile.bbox, gen = _orthoGen, layerName = _orthoLayerCurrent();
             var maxTex = Math.min(maxSize || 4096, _view.mainLoop.gfxEngine.renderer.capabilities.maxTextureSize || 2048);
-            _ORTHO_SIZES.filter(function (n) { return n <= maxTex && n <= _orthoMaxSize; }).forEach(function (size) {
-                var url = _orthoWmsUrl + (_orthoWmsUrl.indexOf('?') === -1 ? '?' : '&') +
-                    'SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS&STYLES=&CRS=EPSG:2154' +
-                    '&BBOX=' + bb.join(',') + '&WIDTH=' + size + '&HEIGHT=' + size + '&FORMAT=image/jpeg';
+            var sizes = _ORTHO_SIZES.filter(function (n) { return n <= maxTex && n <= _orthoMaxSize; });
+            tile.orthoFailed = null; tile.orthoLeft = sizes.length;
+            sizes.forEach(function (size) {
+                var url = _orthoGetMap(layerName, bb.join(','), size, size, 'EPSG:2154', 'image/jpeg');
                 // Un <img> ne rejoue pas seul sur 429 (limitation de débit du WMS) : on réessaie avec attente croissante.
                 (function load(attempt) {
                     var img = new Image();
                     img.crossOrigin = 'anonymous';
                     img.onload = function () {
+                        if (gen !== _orthoGen) { return; }
+                        tile.orthoLeft--;
                         if (size > (tile.orthoSize || 0)) {   // la passe fine peut arriver avant la grossière
                             tile.orthoImg = img;
                             tile.orthoSize = size;
                         }
+                        tile.orthoFailed = null;
+                        if (tile === _main && _currentScope && _currentScope.ui.orthoError) {
+                            var sc = _currentScope; sc.$applyAsync(function () { sc.ui.orthoError = null; });
+                        }
                         _attachOrtho(tile, seq);
                     };
                     img.onerror = function () {
+                        if (gen !== _orthoGen) { return; }
                         if (attempt >= 4 || seq !== _loadSeq) {
                             console.warn('[geo-lidar-hd] orthophoto ' + size + ' indisponible : ' + url);
+                            // Seul compte l'échec de toutes les passes : une passe fine refusée (4096 px sur certains WMS) laisse la précédente.
+                            if (--tile.orthoLeft <= 0 && !tile.orthoImg) { _orthoFailed(tile, layerName); }
                             return;
                         }
                         setTimeout(function () { load(attempt + 1); }, 700 * Math.pow(2, attempt) + Math.random() * 300);
                     };
                     img.src = attempt ? url + '&retry=' + attempt : url;
                 })(0);
+            });
+        }
+
+        // Changement de couche d'orthophoto : les dalles affichées repartent de zéro pour l'orthophoto.
+        function _reloadOrtho() {
+            _orthoGen++;
+            var seq = _loadSeq;
+            _tiles.forEach(function (t) {
+                if (t.orthoTex) { t.orthoTex.dispose(); t.orthoTex = null; }
+                t.orthoImg = null; t.orthoSize = 0; t.orthoPix = null; t.orthoFailed = null;
+                if (t.layer) { t.layer.orthoSize = 0; }
+                _startOrtho(t, seq, t === _main ? undefined : 2048);
             });
         }
 
@@ -2655,6 +2742,8 @@ angular
                     var sc = _currentScope;
                     sc.ui.hasColor   = hasColor;
                     sc.ui.orthoReady = !!(tile.orthoOk && tile.orthoImg);
+                    sc.ui.orthoError = tile.orthoFailed ? _orthoErrorText(tile.orthoFailed) : null;
+                    if (tile.orthoFailed) { sc.ui.infoOpen = true; }
                     sc.ui.groundReady = !!layer.groundSize;   // le MNT peut déjà être là, sinon _attachGround le signale
                     sc.modes = _modeList(sc.ui);
                     sc.profileModes = _profileModeList(sc.ui);
@@ -4890,10 +4979,7 @@ angular
                     var w = Math.min(_ORTHO_PX, plan.w - c * _ORTHO_PX), h = Math.min(_ORTHO_PX, plan.h - r * _ORTHO_PX);
                     var bx0 = plan.x0 + c * _ORTHO_PX * plan.res, by1 = plan.y1 - r * _ORTHO_PX * plan.res;
                     var bbox = [bx0, by1 - h * plan.res, bx0 + w * plan.res, by1];
-                    var url = _orthoWmsUrl + (_orthoWmsUrl.indexOf('?') === -1 ? '?' : '&') +
-                        'SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=ORTHOIMAGERY.ORTHOPHOTOS&STYLES=&CRS=' + ci.code +
-                        '&BBOX=' + bbox.map(function (v) { return v.toFixed(3); }).join(',') +
-                        '&WIDTH=' + w + '&HEIGHT=' + h + '&FORMAT=image/geotiff';
+                    var url = _orthoGetMap(_orthoLayerCurrent(), bbox.map(function (v) { return v.toFixed(3); }).join(','), w, h, ci.code, 'image/geotiff');
                     _setMnt({ pct: Math.round(100 * idx / jobs.length), msg: 'Orthophoto : image ' + (idx + 1) + ' / ' + jobs.length + '…' });
                     return _fetchWithRetry(url, {}, 0).then(function (buf) {
                         var u8 = new Uint8Array(buf);
@@ -4908,10 +4994,11 @@ angular
             });
             return chain.then(function () {
                 if (job.cancelled || !job.orthoImages) { return null; }
-                var info = 'Orthophoto IGN (ORTHOIMAGERY.ORTHOPHOTOS), GeoTIFF géoréférencés en ' + ci.label + '.\r\n' +
+                var isIgn = /geopf\.fr/i.test(_orthoWmsUrl), lname = _orthoLayerCurrent();
+                var info = 'Orthophoto' + (isIgn ? ' IGN' : '') + ' (couche ' + lname + '), GeoTIFF géoréférencés en ' + ci.label + '.\r\n' +
                     'Résolution : ' + resTxt + ' - ' + plan.cols + ' colonne(s) x ' + plan.rows + ' ligne(s) d\'images (nom : _ligne_colonne).\r\n' +
                     'À attacher dans le même système de coordonnées que le DXF du terrain.\r\n' +
-                    'Source : IGN, Géoplateforme (Licence Ouverte).\r\n';
+                    (isIgn ? 'Source : IGN, Géoplateforme (Licence Ouverte).\r\n' : 'Source : service WMS ' + _orthoWmsUrl.split('?')[0] + ' (voir les conditions d\'utilisation de son fournisseur).\r\n');
                 zip.add('LISEZMOI.txt', enc.encode(info));
                 _downloadBlob(zip.blob(), base + '.zip');
                 return null;
@@ -5801,9 +5888,10 @@ angular
                 '.geo-lidar-row input[type=range]{flex:1;min-width:0}',
                 '.geo-lidar-row em{flex:0 0 34px;font-style:normal;color:#2cc9ff;text-align:right}',
                 '.geo-lidar-info-cache{margin-top:4px}',
+                '.geo-lidar-info-warn{margin:4px 0;color:#ffb86c;max-width:300px}',
                 '.geo-lidar-link{background:none;border:0;padding:0 0 0 6px;color:#79b8ff;cursor:pointer;font:inherit;text-decoration:underline}',
                 '.geo-lidar-link:disabled{color:#8b949e;cursor:default;text-decoration:none}',
-                '.geo-lidar-row select{flex:1;color:#000}',
+                '.geo-lidar-row select{flex:1;min-width:0;color:#000}',
                 '.geo-lidar-presets{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 2px}',
                 '.geo-lidar-btn.geo-lidar-btn--small{padding:2px 8px;font-size:12px;border-radius:6px;background:rgba(255,255,255,.12);color:#e6e8eb}',
                 '.geo-lidar-row--maq-vid .geo-lidar-btn,.geo-lidar-row--maq-orbit .geo-lidar-btn{white-space:nowrap;flex:0 0 auto}',

@@ -111,8 +111,8 @@ d'export des points) → cache disque (`disk-cache.js`, API Cache, 2 Go, 7 jours
 
 ## Rendu
 
-Le LiDAR HD IGN est classifié mais sans RVB. Le mode par défaut « Orthophoto IGN » colore chaque point avec
-l'orthophoto de la dalle (WMS `ORTHOIMAGERY.ORTHOPHOTOS`, par passes 1024, 2048 puis 4096 px, chacune remplaçant la précédente : un 4096 px coûte ~14 s au WMS, d'où l'affichage progressif), plaquée par un ajout au vertex shader
+Le LiDAR HD IGN est classifié mais sans RVB. Le mode par défaut « Orthophoto » colore chaque point avec
+l'orthophoto de la dalle (WMS, couche `orthoLayer` ou choisie dans « Style » (liste lue dans le GetCapabilities, `src/js/wms-capabilities.js`) ; par passes 1024, 2048 puis 4096 px, chacune remplaçant la précédente : un 4096 px coûte ~14 s au WMS, d'où l'affichage progressif), plaquée par un ajout au vertex shader
 d'iTowns (`_patchOrthoShader`, désactivé automatiquement si le shader change). Le panneau « Style » reprend
 les réglages de l'exemple iTowns (forme, taille et atténuation, gamma, opacité, seuil SSE, budget de points,
 fond clair/sombre, visibilité par classe).

@@ -31,7 +31,7 @@ endroit, puis les 8 dalles voisines en arrière-plan : un anneau bleu autour du 
 
 | Outil | Ce qu'il fait |
 |---|---|
-| **Couleurs** | Orthophoto IGN, classification, altitude, hauteur au-dessus du sol |
+| **Couleurs** | Orthophoto, classification, altitude, hauteur au-dessus du sol |
 | **Voisines** | Charge ou retire les 8 dalles autour de la dalle cliquée, avec un budget de points commun |
 | **Style** | Forme et taille des points, atténuation, gamma, opacité, niveau de détail, budget, fond |
 | **Filtres** | Tranche d'altitude, tranche de hauteur au-dessus du sol, classes visibles (vue 3D et profil) |
@@ -75,7 +75,9 @@ cette API en dépendance fixe : sans elle, c'est toute l'application qui risque 
 | `wfsUrl` | WFS des dalles | `https://data.geopf.fr/wfs` |
 | `pointBudget` | Points affichés simultanément, toutes dalles confondues | 2 000 000 |
 | `neighbourTiles` | Charger les 8 dalles voisines en arrière-plan (valeur par défaut du bouton « Voisines ») | oui |
-| `orthoWmsUrl` | WMS d'orthophotos pour colorer les points (vide = désactivé) | `https://data.geopf.fr/wms-r/wms` |
+| `orthoEnabled` | Colorer les points par orthophoto (mode « Orthophoto ») | oui |
+| `orthoWmsUrl` | WMS d'orthophotos pour colorer les points (vide = WMS de l'IGN) | `https://data.geopf.fr/wms-r/wms` |
+| `orthoLayer` | Couche du WMS d'orthophotos utilisée par défaut ; le panneau « Style » propose les autres couches du service (GetCapabilities, EPSG:2154) | `ORTHOIMAGERY.ORTHOPHOTOS` |
 | `orthoMaxSize` | Résolution maximale de l'orthophoto (1024 / 2048 / 4096 px) | 4096 |
 | `city3dUrl` | Dossier de base des données 3D de la maquette (prototype : voir `scripts/city3d/README.md`) : `<URL>/buildings/<dalle>.bld` (bâtiments LoD2 reconstruits par roofer) et `<URL>/vegetation/<dalle>.veg` (canopée issue des points classés végétation). Active les cases « Bâtiments LoD2 » et « Arbres » du panneau Maquette, selon les deux interrupteurs ci-dessous (vide = désactivé, comportement inchangé) | vide |
 | `buildingsEnabled` | Propose la case « Bâtiments LoD2 » (sans effet si `city3dUrl` est vide) | oui |

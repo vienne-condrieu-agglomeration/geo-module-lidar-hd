@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseBld, rasterizeFootprints, dilate, dilateById, marginFor, maskSurface } from '../src/js/buildings.js';
 import { Grid } from '../src/js/raster.js';
@@ -162,13 +161,6 @@ assert.ok(ext.includes('var urls3d = city3dUrls(props);'), 'les URLs viennent de
 assert.ok(ext.includes('ng-if=\\"bldEnabled\\"') || ext.includes('ng-if="bldEnabled"'), 'case visible seulement si city3dUrl est réglé et buildingsEnabled non décoché');
 assert.ok(/t\.bldMesh\.geometry\.dispose\(\); t\.bldMesh\.material\.dispose\(\)/.test(ext), 'bldMesh détruit avec sa dalle');
 
-// --- la fausse donnée du dépôt est à jour avec le convertisseur Python (ignoré sans python3) ---
-const py = spawnSync('python3', ['-I', fixture('../../scripts/city3d/buildings/cityjsonseq_to_bld.py'), fixture('fake.city.jsonl'),
-    '--tile', '0846-6494', '-o', fixture('../../node_modules/.fake-check.bld')], { encoding: 'utf8' });
-if (py.status === 0) {
-    const a = readFileSync(fixture('fake.bld')), b = readFileSync(fixture('../../node_modules/.fake-check.bld'));
-    assert.ok(a.equals(b), 'test/fixtures/fake.bld périmé : relancer scripts/city3d/buildings/cityjsonseq_to_bld.py');
-} else {
-    console.log('buildings : python3 indisponible, régénération de fake.bld ignorée');
-}
+// fake.bld est le fichier de référence du format : l'intégrateur city3d (src/integrators/city3d) vérifie qu'il le reproduit à l'identique,
+// et scripts/check-city3d-fixtures-sync.sh que les deux copies restent égales.
 console.log('buildings : OK');

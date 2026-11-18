@@ -125,7 +125,7 @@
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "URL des données 3D de la ville (prototype)",
-          "description": "Dossier de base de fichiers statiques pour la maquette : <URL>/buildings/<dalle>.bld (bâtiments LoD2 reconstruits par roofer) et <URL>/vegetation/<dalle>.veg (canopée issue des points classés végétation), produits par scripts/city3d du module. Les bâtiments et les arbres reconstruits remplacent les rampes du MNS (cases « Bâtiments LoD2 » et « Arbres » du panneau Maquette, selon les deux interrupteurs ci-dessous). Par défaut : vide. Doit autoriser le CORS ; une dalle sans fichier reste inchangée. Laisser vide pour désactiver la fonction.",
+          "description": "Dossier de base de fichiers statiques pour la maquette : <URL>/buildings/<dalle>.bld (bâtiments LoD2 reconstruits par roofer) et <URL>/vegetation/<dalle>.veg (canopée issue des points classés végétation), produits par l'intégrateur communautaire geo-community-integrator-city3d et publiés sur GitHub Pages. Les bâtiments et les arbres reconstruits remplacent les rampes du MNS (cases « Bâtiments LoD2 » et « Arbres » du panneau Maquette, selon les deux interrupteurs ci-dessous). Par défaut : vide. Doit autoriser le CORS ; une dalle sans fichier reste inchangée. Laisser vide pour désactiver la fonction.",
           "key": "city3dUrl",
           "required": false,
           "type": "STRING",

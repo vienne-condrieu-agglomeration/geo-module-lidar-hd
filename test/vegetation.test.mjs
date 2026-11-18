@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseVeg, detectTrees, removeCanopy } from '../src/js/vegetation.js';
 import { Grid } from '../src/js/raster.js';
@@ -84,20 +83,8 @@ for (const size of [64, 128]) {
     near(r.removed, (size / 64) ** 2 * det.canopy.reduce((a, v) => a + v, 0), size, size + ' : nombre de cellules retirées');
 }
 
-// --- le faux fichier du dépôt est à jour avec le script Python (comparaison des valeurs décompressées ; ignoré sans python3) ---
-const out = fixture('../../node_modules/.fake-check.veg');
-const py = spawnSync('python3', ['-I', fixture('../../scripts/city3d/vegetation/make_fake_veg.py'), out], { encoding: 'utf8' });
-if (py.status === 0) {
-    const fresh = await parseVeg((() => { const b = readFileSync(out); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); })());
-    for (let band = 0; band < 2; band++) {
-        for (let k = 0; k < 64 * 64; k++) {
-            const a = veg.z(band, k), b = fresh.z(band, k);
-            assert.ok((Number.isNaN(a) && Number.isNaN(b)) || a === b, 'test/fixtures/fake.veg périmé : relancer scripts/city3d/vegetation/make_fake_veg.py');
-        }
-    }
-} else {
-    console.log('vegetation : python3 indisponible, régénération de fake.veg ignorée');
-}
+// fake.veg est le fichier de référence du format : l'intégrateur city3d (src/integrators/city3d) vérifie qu'il le reproduit à l'identique,
+// et scripts/check-city3d-fixtures-sync.sh que les deux copies restent égales.
 // --- branchement dans le module (lecture du source : extension.js dépend du navigateur) ---
 const ext = readFileSync(fileURLToPath(new URL('../src/js/extension.js', import.meta.url)), 'utf8');
 assert.ok(ext.includes('var wantVeg = !!(_vegetationUrl && m.trees);'), 'sans réglage, rien ne se charge');

@@ -1,7 +1,7 @@
 // Bâtiments LoD2 (fichiers « .bld », voir GUIDE-DEV.md) : lecture et masquage des bâtiments du MNS.
 //
 // Ce fichier ne dépend ni du navigateur, ni d'iTowns, ni de three : il se teste sous Node (test/buildings.test.mjs).
-// Les fichiers sont produits par scripts/city3d/buildings/cityjsonseq_to_bld.py (little-endian, sections alignées sur 4 octets,
+// Les fichiers sont produits par l'intégrateur city3d (buildings/cityjsonseq_to_bld.py, dépôt geo-community-integrator-city3d ; little-endian, sections alignées sur 4 octets,
 // ce que lisent tous les navigateurs courants).
 
 var MAGIC = 0x31444c42;   // « BLD1 » lu en little-endian

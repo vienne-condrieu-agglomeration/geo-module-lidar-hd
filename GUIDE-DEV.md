@@ -123,10 +123,10 @@ Prototype. La maquette (MNT + MNS) rend les bâtiments en rampes bruitées. Avec
 `buildingsEnabled` (activé par défaut), le module superpose des bâtiments reconstruits par [roofer](https://github.com/3DBAG/roofer) (3DBAG), lus dans des fichiers statiques
 `<city3dUrl>/buildings/<dalle>.bld`, et retire les bâtiments du MNS. Sans le réglage, rien n'est chargé ni modifié.
 
-**Où est préparé le fichier.** Depuis le 2026-11-18, cette préparation est reprise dans l'intégrateur `src/integrators/city3d` (dépôt GitHub `geo-community-integrator-city3d`, commande `integrator_city3d.py`), qui publiera les fichiers sur GitHub Pages. Les scripts de `scripts/city3d` restent en place, inchangés, jusqu'à la validation de l'intégrateur ; le format ci-dessous reste décrit ici (source de vérité).
+**Où est préparé le fichier.** Dans l'intégrateur `city3d` (monorepo : `src/integrators/city3d` ; dépôt GitHub `geo-community-integrator-city3d`, commande `integrator_city3d.py`), qui produit aussi `index.json` et dont le dépôt de données `geo-community-data-city3d` publie les fichiers sur GitHub Pages. Il a remplacé le dossier `scripts/city3d` de ce module (retiré après validation dans un vrai GEO, 2026-11-18). Le format ci-dessous reste décrit ici : **c'est la source de vérité**, l'intégrateur doit s'y conformer.
 
-**Pipeline** (hors navigateur, `scripts/city3d/buildings/README.md`) : nuage LiDAR HD (COPC) + emprises BD TOPO → roofer (Docker,
-`3dgi/roofer:v1.0.0`) → CityJSONSeq → `scripts/city3d/buildings/cityjsonseq_to_bld.py` → un `.bld` par dalle. Mesuré sur la dalle
+**Pipeline** (hors navigateur, `buildings/README.md` de l'intégrateur) : nuage LiDAR HD (COPC) + emprises BD TOPO → roofer (Docker,
+`3dgi/roofer:v1.0.0`) → CityJSONSeq → `buildings/cityjsonseq_to_bld.py` de l'intégrateur → un `.bld` par dalle. Mesuré sur la dalle
 0846-6494 : roofer lit directement le `.copc.laz` et traite 1 531 bâtiments en 1 min 28 s ; la conversion prend 1 s et donne
 un `.bld` de 2,7 Mo (1 471 bâtiments, 128 033 triangles).
 
@@ -195,10 +195,10 @@ panneau Maquette n'existe que si `city3dUrl` est renseigné et `treesEnabled` no
 Un seul dossier de base sert les deux fonctions, avec un sous-dossier chacune : `buildings/` et `vegetation/` (`city3dUrls` dans
 `src/js/city3d.js`, testée par `test/city3d.test.mjs` : base vide ou interrupteur décoché = fonction désactivée, interrupteur absent = activé).
 
-**Où est préparé le fichier.** Voir la section « Bâtiments LoD2 » : même intégrateur `src/integrators/city3d` pour les `.veg`.
+**Où est préparé le fichier.** Voir la section « Bâtiments LoD2 » : même intégrateur `city3d` pour les `.veg`.
 
-**Pipeline** (hors navigateur, `scripts/city3d/vegetation/README.md`) : nuage COPC → PDAL (Docker, deux passes) → deux grilles de 1 m →
-`scripts/city3d/vegetation/pack_veg.py` → un `.veg` par dalle (`scripts/city3d/www` enchaîne les étapes et sert les fichiers pour un essai local). Mesuré sur la dalle 0846-6494 : ~13 s par passe PDAL, 923 Ko par `.veg`.
+**Pipeline** (hors navigateur, `vegetation/README.md` de l'intégrateur) : nuage COPC → PDAL (Docker, deux passes) → deux grilles de 1 m →
+`vegetation/pack_veg.py` de l'intégrateur → un `.veg` par dalle (`integrator_city3d.py download` enchaîne les étapes, `www/serve.py` sert les fichiers pour un essai local). Mesuré sur la dalle 0846-6494 : ~13 s par passe PDAL, 923 Ko par `.veg`.
 PDAL ne sert qu'à lire les classes du COPC, que rien d'autre ne sait lire ici sans nouvelle dépendance ; roofer ne traite que les
 bâtiments.
 
@@ -257,7 +257,7 @@ Le point retenu est un point du niveau de détail affiché : zoomer pour pointer
 
 ## Vérifications
 
-Contrat avec l'intégrateur city3d : les fichiers de référence `test/fixtures/fake.bld`, `fake.veg`, `fake.city.jsonl`, `roofer-v1.0.0-synthetique.city.jsonl` et `face-reelle-10-trous.json` existent aussi dans `src/integrators/city3d/fixtures/`, où des tests vérifient que les convertisseurs les reproduisent à l'identique. `scripts/check-city3d-fixtures-sync.sh` (à la racine du dépôt) vérifie que les deux copies sont identiques ; `--fix` recopie celles de l'intégrateur.
+Contrat avec l'intégrateur city3d : les fichiers de référence `test/fixtures/fake.bld` et `fake.veg` existent aussi dans `src/integrators/city3d/fixtures/`, où des tests vérifient que les convertisseurs les reproduisent à l'identique ; les tests de ce module les lisent seulement (`parseBld`, `parseVeg`). `scripts/check-city3d-fixtures-sync.sh` (à la racine du dépôt) vérifie que les deux copies sont identiques ; `--fix` recopie celles de l'intégrateur.
 
 Les tests automatisés tournent en Chromium headless (WebGL logiciel) avec un `geoApplication` factice, et un vrai
 AngularJS pour compiler le gabarit : bundle, worker Blob, WASM, EPSG:2154, chargement d'une dalle de 292 Mo

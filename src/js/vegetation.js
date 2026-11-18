@@ -1,7 +1,7 @@
 // Arbres 3D (fichiers « .veg », voir GUIDE-DEV.md) : lecture, détection des arbres et retrait des cônes du MNS.
 //
 // Ce fichier ne dépend ni du navigateur, ni d'iTowns, ni de three : il se teste sous Node (test/vegetation.test.mjs).
-// Les fichiers sont produits par scripts/city3d/vegetation/pack_veg.py (little-endian, charge utile compressée en deflate).
+// Les fichiers sont produits par l'intégrateur city3d (vegetation/pack_veg.py, dépôt geo-community-integrator-city3d ; little-endian, charge utile compressée en deflate).
 
 var MAGIC = 0x31474556;   // « VEG1 » lu en little-endian
 var HEADER_BYTES = 48;

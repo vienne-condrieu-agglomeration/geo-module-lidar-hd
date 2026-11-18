@@ -11,6 +11,12 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+## [2.0.1] — 2026-11-18
+
+### Corrigé
+
+- Documentation : le README décrit la maquette 3D (curseur, textures, bâtiments LoD2, arbres, export vidéo), les données de la maquette (adresse du site publié, dépôts de l'intégrateur et des données) et les limites des nouvelles fonctions. Le module lui-même ne change pas
+
 ## [2.0.0] — 2026-11-18
 
 Version majeure : le réglage « URL du décodeur laz-perf » du Générateur disparaît (voir « Supprimé »). Les autres réglages existants ne changent pas : tout le reste est ajouté ou facultatif.

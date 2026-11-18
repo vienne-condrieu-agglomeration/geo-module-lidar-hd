@@ -2,20 +2,24 @@
 
 ![Aperçu : vue 3D de neuf dalles, pointage, profil en travers et cadastre, puis couleurs par classification et intensité](docs/apercu.gif)
 
-Module GEO qui affiche en 3D le nuage de points **LiDAR HD de l'IGN** à l'endroit cliqué sur la carte, trace des
-profils en travers et exporte le terrain ou les points en DXF, directement depuis une application GEO.
+Module GEO qui affiche en 3D le nuage de points **LiDAR HD de l'IGN** à l'endroit cliqué sur la carte, construit une
+**maquette 3D** du terrain (avec, si on le souhaite, les bâtiments et les arbres reconstruits en 3D, et un export vidéo),
+trace des profils en travers et exporte le terrain ou les points en DXF, directement depuis une application GEO.
 
 - **Identifiant** : `geo.lidar.hd`
-- **Version** : 2.0.0
+- **Version** : 2.0.1
 - **État** : essayé sur un serveur GEO. Voir les [limites connues](#limites-connues)
-- **Données** : services publics de l'IGN (nuages de points, MNT, MNS, orthophotos) et cadastre diffusé par Etalab.
-  Le module n'a pas de serveur : le navigateur lit directement ces données
+- **Données** : services publics de l'IGN (nuages de points, MNT, MNS, orthophotos) et cadastre diffusé par Etalab ;
+  facultativement, les fichiers de la maquette 3D (bâtiments et arbres) publiés par la bibliothèque, voir
+  [Données de la maquette 3D](#données-de-la-maquette-3d). Le module n'a pas de serveur : le navigateur lit directement ces données
 
 Projet communautaire indépendant, non affilié à Business Geografic.
 
 ## Sommaire
 
 - [Ce que permet le module](#ce-que-permet-le-module)
+- [La maquette 3D](#la-maquette-3d)
+- [Données de la maquette 3D](#données-de-la-maquette-3d)
 - [Installation](#installation)
   - [Prérequis GEO API v2](#prérequis-geo-api-v2)
 - [Réglages du Générateur](#réglages-du-générateur)
@@ -31,9 +35,9 @@ endroit, puis les 8 dalles voisines en arrière-plan : un anneau bleu autour du 
 
 | Outil | Ce qu'il fait |
 |---|---|
-| **Couleurs** | Orthophoto, classification, altitude, hauteur au-dessus du sol |
+| **Couleurs** | Orthophoto, classification, altitude, hauteur au-dessus du sol. L'orthophoto vient d'un WMS réglable (celui de l'IGN par défaut) |
 | **Voisines** | Charge ou retire les 8 dalles autour de la dalle cliquée, avec un budget de points commun |
-| **Style** | Forme et taille des points, atténuation, gamma, opacité, niveau de détail, budget, fond |
+| **Style** | Forme et taille des points, atténuation, gamma, opacité, niveau de détail, budget, fond, couche d'orthophoto du service WMS |
 | **Filtres** | Tranche d'altitude, tranche de hauteur au-dessus du sol, classes visibles (vue 3D et profil) |
 | **Maquette** | Surface pleine d'après le MNT et le MNS, du terrain nu à la surface, exagération du relief ; bâtiments LoD2 et arbres 3D (si les données 3D sont renseignées dans le Générateur) ; export d'une vidéo MP4 ou WebM d'un tour de la maquette |
 | **Profil** | Coupe le long d'un tracé sur la carte GEO : courbes MNT et MNS, pentes, mesures, cadastre, exports PNG, CSV et DXF |
@@ -49,6 +53,45 @@ Autres fonctions :
   Un export en cours continue.
 - **Visites guidées** : un bouton `?` présente Style, Filtres, Maquette, Profil et Terrain, à la demande.
 - **Nouveautés** : le bouton d'aide `?` de la barre d'outils donne accès à la navigation 3D et au journal des versions.
+
+## La maquette 3D
+
+L'outil **Maquette** habille le terrain d'une surface pleine d'après le MNT et le MNS de l'IGN, texturée par l'orthophoto. Son panneau propose :
+
+- **Terrain nu ↔ Surface** : un curseur passe du terrain nu à la surface (bâti et végétation compris) ; « Animer » le fait varier tout seul ;
+- **Texture** : orthophoto, hauteur au-dessus du sol ou grise, qui fait ressortir le relief ;
+- **Relief** : exagération verticale, les dalles voisines restent raccordées ;
+- **Bâtiments LoD2** et **Arbres** (si les données 3D sont renseignées) : des bâtiments reconstruits, avec toits en pente et murs droits, et des arbres
+  (un houppier arrondi sur un tronc) remplacent les bâtiments et les cônes bruités du MNS. Ils suivent le curseur, le relief et « Animer » ;
+- **Nuage de points** : affiche ou masque le nuage sous la maquette ;
+- **Vidéo** : un bouton « Exporter » enregistre **un tour complet autour d'un point** (cliqué sur la maquette, sinon le centre de la vue) et
+  télécharge une vidéo **MP4** (WebM si le navigateur n'a pas d'encodeur H.264), de 10, 20 ou 30 s, en « Full HD » (1920 px, par défaut), à la taille de
+  la vue ou en « 4K ». La vidéo est calculée image par image : 30 images par seconde, fluide quelle que soit la puissance du poste.
+
+## Données de la maquette 3D
+
+Les bâtiments et les arbres ne sont pas calculés par le module : il lit des **fichiers statiques**, un par dalle de 1 km² et par fonction, préparés à
+l'avance à partir du LiDAR HD et de la BD TOPO® de l'IGN (Licence Ouverte 2.0).
+
+| Dépôt | Rôle |
+|---|---|
+| [geo-community-integrator-city3d](https://github.com/vienne-condrieu-agglomeration/geo-community-integrator-city3d) | L'intégrateur : [roofer](https://github.com/3DBAG/roofer) reconstruit les bâtiments, [PDAL](https://pdal.io) lit la végétation. Une dalle donne un fichier `.bld` et un fichier `.veg` (environ 2 Mo en ville) |
+| [geo-community-data-city3d](https://github.com/vienne-condrieu-agglomeration/geo-community-data-city3d) | Les fichiers produits, publiés sur GitHub Pages avec un `index.json` qui liste les dalles disponibles. Neuf dalles autour du centre de Vienne pour commencer |
+
+**Pour les utiliser**, renseigner dans le Générateur, section « Maquette 3D », le réglage **URL des données 3D de la ville** (`city3dUrl`) avec
+l'adresse du site publié, sans `/` final :
+
+```
+https://vienne-condrieu-agglomeration.github.io/geo-community-data-city3d
+```
+
+C'est l'adresse du **site**, pas celle du dépôt `github.com`, qui répond 404. Les cases « Bâtiments LoD2 » et « Arbres » apparaissent alors dans le panneau
+Maquette ; une dalle sans fichier reste comme sans le réglage, sans message. Le module lit `index.json` et ne demande que les dalles qu'il liste, et
+relit un fichier en cas d'erreur réseau ou de réponse 429, 502, 503 ou 504.
+
+Pour d'autres communes, la page [Données et intégrateurs](https://vienne-condrieu-agglomeration.github.io/geo-modules-community/donnees/) explique
+comment publier ses propres fichiers (copie du dépôt de données, ou intégrateur lancé sur un poste). Le format des fichiers est décrit dans
+[GUIDE-DEV.md](GUIDE-DEV.md) (sections « Bâtiments LoD2 » et « Arbres »).
 
 ## Installation
 
@@ -94,6 +137,8 @@ Le poste de l'utilisateur doit pouvoir joindre ces services. Sans accès Interne
 | `data.geopf.fr` (IGN) | Dalles, nuages de points, MNT, MNS, orthophotos | oui |
 | `apicarto.ign.fr` | Communes pour le cadastre | pour le cadastre |
 | `cadastre.s3.rbx.io.cloud.ovh.net` (Etalab) | Cadastre PCI Vecteur | pour le cadastre |
+| `vienne-condrieu-agglomeration.github.io` (ou votre hébergement) | Fichiers de la maquette 3D (bâtiments et arbres) | pour les bâtiments et les arbres |
+| votre service WMS | Orthophoto, si vous n'utilisez pas celui de l'IGN | non |
 
 Le serveur de l'IGN limite le débit : le module limite ses requêtes en parallèle et rejoue celles qui sont refusées.
 
@@ -105,6 +150,11 @@ Le serveur de l'IGN limite le débit : le module limite ses requêtes en parall�
   y compris après rechargement de la page. L'encart d'informations de la dalle (bouton « i ») en indique la taille et permet de le vider ; une dalle
   republiée par l'IGN n'est revue qu'après ce délai ou après « Vider ».
 - **Couverture** : seules les dalles publiées par l'IGN sont disponibles, et une dalle peut être sans MNT.
+- **Bâtiments et arbres 3D** : prototype. Les bâtiments sont des reconstructions automatiques (toits simplifiés ; ceux qu'on ne sait pas reconstruire
+  restent tels que dans le MNS) et les arbres des volumes simples, sans distinction entre résineux et feuillus ; aucune valeur de relevé. Seules les
+  dalles publiées ont des fichiers : neuf autour du centre de Vienne aujourd'hui.
+- **Vidéo** : essayée sous Firefox ; non vérifiée sous Chrome. Le navigateur doit savoir encoder en WebCodecs.
+- **Orthophoto à 5 cm** : un WMS qui refuse les grandes images (4096 px) garde la résolution précédente ; il n'y a pas de mosaïque de plusieurs requêtes par dalle.
 - **Cadastre** : tracé indicatif, sans valeur juridique ni de bornage. Les fichiers sont lus par commune.
 - **Exports volumineux** : à 50 cm, compter 1 à 2 Go de DXF par km² (estimation). Le panneau donne une estimation avant
   l'export. Un navigateur qui ne sait pas écrire directement sur le disque construit le fichier en mémoire.

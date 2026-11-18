@@ -11,6 +11,7 @@ Fonctionnement interne, vérifications réalisées et pistes d'évolution. Pour 
 - [Projections](#projections)
 - [Visites guidées](#visites-guidées)
 - [Dalles voisines (9 dalles)](#dalles-voisines-9-dalles)
+- [Cache](#cache)
 - [Rendu](#rendu)
 - [Bâtiments LoD2](#bâtiments-lod2)
 - [Arbres](#arbres)
@@ -93,6 +94,19 @@ du générateur (activé par défaut) qui s'applique.
   (aperçu et pleine densité) portent sur toutes les dalles : un profil peut traverser une limite de dalle ;
 - sur la carte GEO, les emprises des voisines sont tracées en pointillé fin. Cliquer dans une voisine en fait la nouvelle
   dalle centrale (les plages COPC déjà lues restent en cache mémoire, 250 Mo au plus, d'où un rechargement sans réseau).
+
+## Cache
+
+Lecture d'une réponse (`_cachedFetch`, `extension.js`) : cache mémoire (250 Mo, vidé 5 min après la fermeture du panneau et en fin
+d'export des points) → cache disque (`disk-cache.js`, API Cache, 2 Go, 7 jours) → réseau (3 requêtes en parallèle, reprises sur 429).
+
+- Clé : `url|range` pour une plage COPC, `GET|url` pour un raster. Seules ces deux familles sont conservées (pas le WFS, ni le cadastre).
+- Sans `caches` (page non sécurisée, navigation privée) ou si le stockage échoue, tout est ignoré : retour au seul réseau.
+- L'index (taille, date) est reconstitué au premier accès depuis les en-têtes `x-size` / `x-cached-at` des entrées : aucun corps n'est lu.
+  Éviction par ancienneté d'usage ; une entrée de plus de 7 jours est supprimée.
+- Un raster dont la réponse commence par `<?xml`, `<service` ou `<html` (erreur WMS en HTTP 200) n'est jamais conservé.
+- Le volume réel des 9 dalles de Vienne n'est pas mesuré : le panneau « Style » affiche la taille courante, à relever.
+- Les mises à jour de l'IGN ne sont vues qu'après 7 jours ou après « Vider » : à garder en tête si une dalle est republiée.
 
 ## Rendu
 
@@ -427,7 +441,7 @@ colorés par classification ou orthophoto.
 
 - **Embarquer `laz-perf.wasm`** dans le bundle (~210 Ko) : plus de dépendance au CDN jsDelivr, utile en intranet
   (la clé `lazPerfUrl` pourrait alors servir de surcharge).
-- **Cache des plages COPC** (API Cache du navigateur) : revenir sur une dalle sans retélécharger, moins de 429.
+- ~~**Cache des plages COPC** (API Cache du navigateur)~~ *(fait)* : `src/js/disk-cache.js`, voir « Cache ».
 
 ### Plus ambitieux
 

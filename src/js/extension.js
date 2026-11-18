@@ -14,6 +14,7 @@ import {
 // Worker de décodage LAZ, compilé à part (webpack.worker.config.js) et embarqué en texte.
 import workerSource from '../../build/las-worker.js';
 import { createRasterReader } from './raster.js';
+import { createDiskCache } from './disk-cache.js';
 import { parseBld, maskSurface } from './buildings.js';
 import { parseVeg, detectTrees, removeCanopy } from './vegetation.js';
 import { city3dUrls } from './city3d.js';
@@ -71,39 +72,51 @@ function _rangeKey(url, options) {
     return r ? url + '|' + r : null;
 }
 function _clearRangeCache() { _rangeCache.clear(); _rangeCacheBytes = 0; }
-Fetcher.arrayBuffer = function (url, options) {
-    var key = _rangeKey(url, options);
+// Cache persistant (API Cache) : plages COPC et rasters survivent au rechargement de la page. 2 Go au plus, 7 jours.
+var _diskCache = createDiskCache(typeof caches !== 'undefined' ? caches : null, { maxBytes: 2 * 1024 * 1024 * 1024, ttlMs: 7 * 24 * 3600 * 1000 });
+function _remember(key, buf) {
+    if (buf.byteLength < _CACHE_MAX / 4) {
+        _rangeCache.set(key, buf.slice(0)); _rangeCacheBytes += buf.byteLength;
+        var it = _rangeCache.keys();
+        while (_rangeCacheBytes > _CACHE_MAX) {
+            var k = it.next().value;
+            if (k === undefined) { break; }
+            _rangeCacheBytes -= _rangeCache.get(k).byteLength; _rangeCache.delete(k);
+        }
+    }
+}
+// Lecture avec trois niveaux : mémoire, disque (navigateur), réseau (concurrence limitée, reprises sur 429).
+// `key` null : pas de cache (réponse non reproductible). `storable` : refuse de retenir une réponse invalide.
+function _cachedFetch(url, options, key, storable) {
     if (key && _rangeCache.has(key)) {
         var hit = _rangeCache.get(key);
         _rangeCache.delete(key); _rangeCache.set(key, hit);   // plus récemment utilisé
         return Promise.resolve(hit.slice(0));
     }
-    return new Promise(function (resolve, reject) {
-        function run() {
-            _active++;
-            _fetchWithRetry(url, options || {}, 0).then(function (buf) {
-                if (key && buf.byteLength < _CACHE_MAX / 4) {
-                    _rangeCache.set(key, buf.slice(0)); _rangeCacheBytes += buf.byteLength;
-                    var it = _rangeCache.keys();
-                    while (_rangeCacheBytes > _CACHE_MAX) {
-                        var k = it.next().value;
-                        if (k === undefined) { break; }
-                        _rangeCacheBytes -= _rangeCache.get(k).byteLength; _rangeCache.delete(k);
-                    }
-                }
-                resolve(buf);
-            }, reject).then(_release, _release);
-        }
-        if (_active < _MAX_PARALLEL) { run(); } else { _waiting.push(run); }
+    return (key ? _diskCache.get(key) : Promise.resolve(null)).then(function (disk) {
+        if (disk) { _remember(key, disk); return disk; }
+        return new Promise(function (resolve, reject) {
+            function run() {
+                _active++;
+                _fetchWithRetry(url, options || {}, 0).then(function (buf) {
+                    if (key && (!storable || storable(buf))) { _remember(key, buf); _diskCache.put(key, buf); }
+                    resolve(buf);
+                }, reject).then(_release, _release);
+            }
+            if (_active < _MAX_PARALLEL) { run(); } else { _waiting.push(run); }
+        });
     });
-};
+}
+Fetcher.arrayBuffer = function (url, options) { return _cachedFetch(url, options, _rangeKey(url, options)); };
 
-// Lecteur des rasters MNT / MNS / MNH des dalles (voir raster.js). Il passe par le fetcher ci-dessus :
+// Lecteur des rasters MNT / MNS / MNH des dalles (voir raster.js). Il passe par la lecture à trois niveaux ci-dessus :
 // même concurrence limitée et mêmes reprises sur 429 que le nuage de points.
 // Le WMS de l'IGN répond parfois par une erreur ponctuelle (400, 500…) à une requête qui réussit au coup suivant : sans reprise, la dalle
 // concernée restait sans MNT ou sans MNS, donc absente de la maquette. Trois reprises espacées, sauf si la vue a changé entre-temps.
+// Le WMS répond parfois 200 avec un message d'erreur XML : jamais mis en cache, il resterait sept jours.
+function _notXml(buf) { return !/^<(\?xml|service|html)/i.test(new TextDecoder('latin1').decode(new Uint8Array(buf, 0, Math.min(16, buf.byteLength)))); }
 function _rasterFetch(url, attempt) {
-    return Fetcher.arrayBuffer(url).catch(function (err) {
+    return _cachedFetch(url, undefined, 'GET|' + url, _notXml).catch(function (err) {
         if ((attempt || 0) >= 3) { throw err; }
         return new Promise(function (res) { setTimeout(res, 600 * Math.pow(2, attempt || 0) + Math.random() * 300); })
             .then(function () { return _rasterFetch(url, (attempt || 0) + 1); });
@@ -329,6 +342,9 @@ angular
                 '      <input type="range" min="0.5" max="10" step="0.5" ng-model="style.budget" ng-change="applyStyle()"><em>{{ style.budget }}</em></div>',
                 '    <div class="geo-lidar-row geo-lidar-row--bg"><span>Fond</span>',
                 '      <select ng-model="style.bg" ng-change="applyStyle()"><option value="light">Clair</option><option value="dark">Sombre</option></select></div>',
+                '    <div class="geo-lidar-row geo-lidar-row--cache" ng-if="diskCache"><span>Cache disque</span>',
+                '      <em>{{ diskCache.text }}</em>',
+                '      <button class="geo-lidar-btn geo-lidar-btn--small" ng-click="clearDiskCache()" ng-disabled="!diskCache.count" title="Supprime les données LiDAR et rasters conservées par le navigateur : elles seront retéléchargées au prochain chargement">Vider</button></div>',
                 '  </div>',
                 '  <div class="geo-lidar-panel geo-lidar-panel--mnt" ng-if="mnt.open && !mnt.drawing">',
                 '    <div class="geo-lidar-panel-title">Export du terrain',
@@ -765,6 +781,18 @@ angular
                                      gamma: 1, ambient: 0, opacity: 1, sse: 2, budget: _pointBudget / 1e6, bg: 'light',
                                      altOn: false, altLo: 0, altHi: 1, altMin: 0, altMax: 1,
                                      hagColorMax: 30, hagOn: false, hagLo: -2, hagHi: 60, hagFrom: -2, hagTo: 60 };
+                // Cache disque : taille affichée dans le panneau Style, et bouton pour le vider.
+                $scope.diskCache = null;
+                function _refreshDiskCache() {
+                    _diskCache.stats().then(function (st) {
+                        $scope.$evalAsync(function () {
+                            $scope.diskCache = st ? { count: st.count, text: _fmtBytes(st.bytes) + ' / ' + _fmtBytes(st.max) } : null;
+                        });
+                    });
+                }
+                function _fmtBytes(n) { return n >= 1073741824 ? (n / 1073741824).toFixed(1) + ' Go' : Math.round(n / 1048576) + ' Mo'; }
+                $scope.clearDiskCache = function () { _clearRangeCache(); _diskCache.clear().then(_refreshDiskCache); };
+                $scope.$watch('ui.panelOpen', function (open) { if (open) { _refreshDiskCache(); } });
                 $scope.wheel     = _readWheelPref();   // 'zoom' (molette) ou 'orbit' (deux doigts = rotation)
                 $scope.drag      = 'rotate';           // glisser à un doigt : 'rotate' ou 'pan'
                 $scope.classes   = [];
@@ -5775,6 +5803,7 @@ angular
                 '.geo-lidar-row>span{flex:0 0 100px}',
                 '.geo-lidar-row input[type=range]{flex:1;min-width:0}',
                 '.geo-lidar-row em{flex:0 0 34px;font-style:normal;color:#2cc9ff;text-align:right}',
+                '.geo-lidar-row--cache em{flex:1 1 auto;text-align:left}',
                 '.geo-lidar-row select{flex:1;color:#000}',
                 '.geo-lidar-presets{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 2px}',
                 '.geo-lidar-btn.geo-lidar-btn--small{padding:2px 8px;font-size:12px;border-radius:6px;background:rgba(255,255,255,.12);color:#e6e8eb}',

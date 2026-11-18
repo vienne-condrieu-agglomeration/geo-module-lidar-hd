@@ -11,6 +11,10 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+### Modifié
+
+- Les données LiDAR (plages COPC) et les rasters MNT / MNS / MNH sont désormais conservés par le navigateur (2 Go au plus, 7 jours) : recharger la page, rouvrir le panneau ou refaire un export ne retélécharge plus les dalles déjà vues. Avant, le cache ne vivait qu'en mémoire (vidé au rechargement de la page) et les rasters n'étaient jamais conservés. Le panneau « Style » indique la taille du cache et propose de le vider
+
 ### Ajouté
 
 - Maquette : un bouton « Exporter » (ligne « Vidéo ») enregistre un tour complet autour d'un point et télécharge une vidéo MP4 (WebM si le navigateur n'a pas d'encodeur H.264), durée au choix : 10, 20 ou 30 s. Le point se choisit en cliquant sur la maquette (« Choisir le point ») ; un repère le montre, mais il n'apparaît pas dans la vidéo. Sans point choisi, la vidéo tourne autour du centre de la vue. Le réglage « Qualité » choisit la définition : « Full HD » (1920 px de large, par défaut), « Taille de la vue » ou « 4K » (3840 px). La vidéo est calculée image par image : elle fait toujours 30 images par seconde, fluide, quelle que soit la puissance du poste ; l'export est plus long sur un poste lent, et une barre de progression l'indique

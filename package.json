@@ -31,7 +31,9 @@
   "dependencies": {
     "driver.js": "^1.10.2",
     "itowns": "2.46.0",
+    "mp4-muxer": "5.2.2",
     "proj4": "^2.19.3",
-    "three": "^0.174.0"
+    "three": "^0.174.0",
+    "webm-muxer": "5.1.4"
   }
 }

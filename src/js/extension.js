@@ -17,6 +17,8 @@ import { createRasterReader } from './raster.js';
 import { parseBld, maskSurface } from './buildings.js';
 import { parseVeg, detectTrees, removeCanopy } from './vegetation.js';
 import { city3dUrls } from './city3d.js';
+import { Muxer as WebmMuxer, ArrayBufferTarget as WebmTarget } from 'webm-muxer';
+import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { TOURS, MAP_TARGET } from './tours.js';
@@ -428,6 +430,17 @@ angular
                 '        <input type="checkbox" ng-model="maq.trees" ng-change="applyMaq()" title="Remplacer les cônes de la végétation du MNS par des arbres en volumes simples"></div>',
                 '      <div class="geo-lidar-row geo-lidar-row--maq-pts"><span>Nuage de points</span>',
                 '        <input type="checkbox" ng-model="maq.points" ng-change="applyMaq()" title="Garder le nuage de points affiché avec la maquette"></div>',
+                '      <div class="geo-lidar-row geo-lidar-row--maq-vid" ng-if="vidOk"><span>Vidéo</span>',
+                '        <select ng-model="vid.dur" ng-disabled="vid.state === \'rec\'" ng-options="d as (d + \' s\') for d in [10, 20, 30]" title="Durée d\'un tour complet autour du centre de la vue"></select>',
+                '        <button class="geo-lidar-btn geo-lidar-btn--small" ng-if="vid.state !== \'rec\'" ng-click="maqVideo()" title="Exporter une vidéo : enregistre un tour complet de la maquette autour du centre choisi (fichier MP4)">Exporter</button>',
+                '        <button class="geo-lidar-btn geo-lidar-btn--small" ng-if="vid.state === \'rec\'" ng-click="maqVideoCancel()">Annuler</button></div>',
+                '      <div class="geo-lidar-row geo-lidar-row--maq-vidq" ng-if="vidOk"><span>Qualité</span>',
+                '        <select ng-model="vid.q" ng-disabled="vid.state === \'rec\'" ng-options="o.v as o.l for o in [{v: \'hd\', l: \'Full HD (1920 px)\'}, {v: 1, l: \'Taille de la vue\'}, {v: \'4k\', l: \'4K (3840 px)\'}]" title="Résolution de la vidéo : Full HD = 1920 px de large, 4K = 3840 px, quelle que soit la taille du panneau (la 4K donne un fichier plus lourd et peut être moins fluide)"></select></div>',
+                '      <div class="geo-lidar-row geo-lidar-row--maq-orbit" ng-if="vidOk"><span>Centre</span>',
+                '        <button class="geo-lidar-btn geo-lidar-btn--small" ng-class="{\'geo-lidar-btn--on\': vid.pt === \'picking\'}" ng-disabled="vid.state === \'rec\'" ng-click="maqOrbitPick()" title="Cliquer ensuite sur la maquette : la vidéo tournera autour de ce point (il n\'apparaît pas dans la vidéo)">{{ vid.pt === \'picking\' ? \'Cliquez sur la maquette…\' : (vid.pt === \'set\' ? \'Changer le point\' : \'Choisir le point\') }}</button>',
+                '        <button class="geo-lidar-btn geo-lidar-btn--small" ng-if="vid.pt === \'set\'" ng-disabled="vid.state === \'rec\'" ng-click="maqOrbitClear()" title="Revenir au centre de la vue">Effacer</button></div>',
+                '      <div class="geo-lidar-bar geo-lidar-mnt-bar" ng-if="vid.state === \'rec\'"><div ng-style="{width: vid.pct + \'%\'}"></div></div>',
+                '      <div class="geo-lidar-mnt-text" ng-class="{\'geo-lidar-mnt-warn\': vid.state === \'error\'}" ng-if="vid.msg">{{ vid.msg }}</div>',
                 '      <div class="geo-lidar-mnt-text geo-lidar-mnt-hint">Maille de 1 m pour la dalle cliquée, 2 m pour les voisines. Pointage d\'altitude indisponible tant que le nuage est masqué ; le profil reste utilisable.</div>',
                 '    </div>',
                 '  </div>',
@@ -765,6 +778,8 @@ angular
                 $scope.dxfCrsChanged = function () { _saveDxfCrs($scope.profile.dxfCrs); };
                 $scope.mntRes = _MNT_RES;
                 // Maquette 3D : t = curseur terrain nu (0) -> surface (100), exag = exagération verticale
+                $scope.vid = { dur: 20, q: 'hd', state: 'idle', pct: 0, msg: '', pt: 'none' };   // pt : 'none' | 'picking' | 'set' (point d'orbite)   // export vidéo de la maquette (tour autour du centre de la vue)
+                $scope.vidOk = _videoSupported();
                 $scope.maq = { on: false, touched: false, t: 100, exag: 1, color: 'ortho', points: false, buildings: true, trees: true, anim: false, state: 'idle' };
                 $scope.vegEnabled = !!_vegetationUrl;   // la case « Arbres » n'existe que si city3dUrl est renseigné et treesEnabled non décoché
                 $scope.bldEnabled = !!_buildingsUrl;   // la case « Bâtiments LoD2 » n'existe que si city3dUrl est renseigné et buildingsEnabled non décoché
@@ -857,6 +872,10 @@ angular
                 };
                 $scope.maqPreset = function (t) { _maqStopAnim(); $scope.maq.t = t; _applyMaquette(); };
                 $scope.maqAnimate = function () { _maqPlay(); };
+                $scope.maqVideo = function () { _maqRecord(); };
+                $scope.maqVideoCancel = function () { _vidAbort(); };
+                $scope.maqOrbitPick = function () { _orbitPicking ? _orbitPickStop() : _orbitPickStart(); };
+                $scope.maqOrbitClear = function () { _orbitClear(); };
                 $scope.toggleMnt = function () {
                     if ($scope.mnt.state === 'running') { return; }   // ne pas interrompre un export en cours
                     if (_mntDraw) { _abortMntDraw(); return; }
@@ -1064,7 +1083,7 @@ angular
                     _cancelMntDraw();
                     _profMemo = _mntMemo = _drawReturn = null;   // la mémoire des outils ne survit pas à la fermeture de la vue
                     _cadFiles.clear();
-                    _maqStopAnim();
+                    _maqStopAnim(); _vidAbort(); _orbitClear();
                     _stopMnt(true);
                     if (_mntModify) { try { _mntModify.map.removeInteraction(_mntModify.interaction); } catch (e) { /* carte détruite */ } _mntModify = null; }
                     _disposeView();
@@ -1312,7 +1331,7 @@ angular
             if (_prof) { _suspendProfile(); tool = 'profile'; }
             if ($scope.mnt.open && !_mntJob) { _suspendMnt(); tool = 'mnt'; }
             _unbindProfileCanvas();
-            _maqStopAnim();
+            _maqStopAnim(); _vidAbort(); _orbitClear();
             _removeKind('probe');
             if (_olLayer) { _olLayer.setVisible(false); }
             if (_wheelEl && _wheelHandler) { _wheelEl.removeEventListener('wheel', _wheelHandler, { capture: true }); }
@@ -1793,6 +1812,7 @@ angular
         // 1 m pour la dalle cliquée, de 2 m pour les voisines ; coordonnées locales à la dalle (float32 sans tremblement).
         // ============================================================
         var _maqGeo = {};
+        var _maqZRef = 0;   // référence commune de l'exagération du relief (voir _maquetteUpdate)
         var _MAQ_VS = [
             'uniform sampler2D tTex; uniform vec4 tInfo;',
             'uniform sampler2D sTex; uniform vec4 sInfo;',
@@ -1967,6 +1987,7 @@ angular
             var zRef = Infinity;
             _tiles.forEach(function (t) { if (t.bbox && isFinite(t.groundMin) && t.groundMin < zRef) { zRef = t.groundMin; } });
             if (!isFinite(zRef)) { zRef = 0; }
+            _maqZRef = zRef;
             _tiles.forEach(function (t) {
                 if (!t.bbox) { return; }
                 total++;
@@ -2118,6 +2139,7 @@ angular
                 if (t.bldMesh) { t.bldMesh.visible = !!(m.on && m.buildings && t.bld); }
                 if (t.treeMesh) { t.treeMesh.visible = t.trunkMesh.visible = !!(m.on && m.trees && t.veg); }
             });
+            _orbitPlace();
             _view.notifyChange(_view.camera.camera3D);
         }
 
@@ -2144,6 +2166,284 @@ angular
                 if (k >= 1) { _maqAnim = 0; _currentScope.maq.anim = false; _currentScope.maq.t = 100; _applyMaquette(); return; }
                 _maqAnim = window.requestAnimationFrame(step);
             })(window.performance.now());
+        }
+
+        // Export vidéo : rendu IMAGE PAR IMAGE. La caméra avance d'un pas fixe (un tour complet = durée × 30 images), on attend que
+        // la vue soit dessinée, puis l'image du canvas part à l'encodeur WebCodecs (H.264 en MP4, le plus répandu ; sinon VP9 puis VP8 en WebM)
+        // avec son horodatage exact ; mp4-muxer ou webm-muxer écrit le fichier. La vidéo fait donc 30 images par seconde quelle que soit la lenteur du poste (un enregistrement en direct
+        // par MediaRecorder donnait 3 à 4 images par seconde en 4K) ; l'export prend simplement plus de temps. Tout ce qui est réglé dans la
+        // maquette est dans la vidéo ; les contrôles sont désactivés pendant l'export et la caméra revient à sa position de départ.
+        // Point d'orbite choisi sur la maquette : on clique, le rayon de la souris est suivi pas à pas jusqu'à la surface affichée (MNT
+        // et MNS des dalles, curseur et relief exagéré compris) ; un repère cyan le montre, masqué pendant l'enregistrement. Le point est
+        // gardé en altitudes vraies (sol et surface) pour suivre le curseur et le relief. Sans point, la vidéo tourne autour du centre de la vue.
+        var _orbitPt = null, _orbitBall = null, _orbitPicking = false;
+        function _maqDisplayZ(x, y, parts) {
+            for (var i = 0; i < _tiles.length; i++) {
+                var t = _tiles[i], b = t.bbox;
+                if (!b || !t.groundGrid || !t.surfGrid || x < b[0] || x > b[2] || y < b[1] || y > b[3]) { continue; }
+                var zg = t.groundGrid.sample(x, y), zs = t.surfGrid.sample(x, y);
+                if (zg !== zg) { zg = t.groundGrid.nearest(x, y); }
+                if (zs !== zs) { zs = t.surfGrid.nearest(x, y); }
+                if (parts) { parts.zg = zg; parts.zs = zs; }
+                return _orbitZ(zg, zs);
+            }
+            return NaN;
+        }
+        // Altitude affichée d'un point de sol zg / surface zs : curseur terrain nu -> surface, puis relief exagéré autour de la référence commune.
+        function _orbitZ(zg, zs) {
+            var m = _currentScope && _currentScope.maq, k = m ? Math.max(0, Math.min(1, Number(m.t) / 100)) : 1, ex = m ? (Number(m.exag) || 1) : 1, z;
+            if (zg === zg && zs === zs) { z = zg + (Math.max(zs, zg) - zg) * k; }
+            else if (zg === zg) { z = zg; } else if (zs === zs) { z = zs; } else { return NaN; }
+            return _maqZRef + (z - _maqZRef) * ex;
+        }
+        function _orbitPoint() { return new Vector3(_orbitPt.x, _orbitPt.y, _orbitZ(_orbitPt.zg, _orbitPt.zs)); }
+        function _orbitPlace() {
+            if (!_orbitPt || !_orbitBall || !_view) { return; }
+            var z = _orbitZ(_orbitPt.zg, _orbitPt.zs);
+            if (z === z) { _orbitBall.position.set(_orbitPt.x, _orbitPt.y, z); }
+            var m = _currentScope && _currentScope.maq;
+            _orbitBall.visible = !!(m && m.on) && !_vid;
+            _scalePick();
+        }
+        function _orbitPickStart() {
+            var sc = _currentScope;
+            if (!sc || !_pickEl || _vid) { return; }
+            _orbitPicking = true;
+            _pickEl.style.cursor = 'crosshair';
+            _vidSet({ pt: 'picking', msg: '' });
+        }
+        function _orbitPickStop() {
+            _orbitPicking = false;
+            if (_pickEl) { _pickEl.style.cursor = ''; }
+            _vidSet({ pt: _orbitPt ? 'set' : 'none' });
+        }
+        function _orbitSetFromClick(cx, cy) {
+            if (!_view || !_pickEl) { return; }
+            var cam = _view.camera.camera3D, rect = _pickEl.getBoundingClientRect();
+            cam.updateMatrixWorld();
+            var inv = new Matrix4().copy(cam.projectionMatrix).invert();
+            var far = new Vector3((cx - rect.left) / rect.width * 2 - 1, 1 - (cy - rect.top) / rect.height * 2, 0.5).applyMatrix4(inv).applyMatrix4(cam.matrixWorld);
+            var o = cam.position.clone(), dir = far.sub(o).normalize();
+            var maxD = o.distanceTo(_controls.target) * 4 + 2000, d = 0, prevD = 0, hit = null, p = new Vector3();
+            while (d < maxD) {
+                p.copy(o).addScaledVector(dir, d);
+                var z = _maqDisplayZ(p.x, p.y);
+                if (z === z && p.z <= z) {
+                    var lo = prevD, hi = d;   // affinage par dichotomie entre le dernier pas au-dessus et le premier en dessous
+                    for (var it = 0; it < 14; it++) {
+                        var mid = (lo + hi) / 2;
+                        p.copy(o).addScaledVector(dir, mid);
+                        var zm = _maqDisplayZ(p.x, p.y);
+                        if (zm === zm && p.z <= zm) { hi = mid; } else { lo = mid; }
+                    }
+                    hit = o.clone().addScaledVector(dir, hi);
+                    break;
+                }
+                prevD = d;
+                d += Math.max(1, d / 400);
+            }
+            if (!hit) { _vidSet({ msg: 'Aucun point de la maquette à cet endroit : cliquez sur le terrain.' }); return; }
+            var parts = {};
+            _maqDisplayZ(hit.x, hit.y, parts);
+            _orbitPt = { x: hit.x, y: hit.y, zg: parts.zg, zs: parts.zs };
+            if (!_orbitBall) {
+                _orbitBall = new Mesh(new SphereGeometry(1, 16, 12), new MeshBasicMaterial({ color: 0x22d3ee, depthTest: false, transparent: true }));
+                _orbitBall.renderOrder = 1001;
+                _view.scene.add(_orbitBall);
+            }
+            _orbitPickStop();
+            _orbitPlace();
+            _view.notifyChange(cam);
+        }
+        function _orbitClear() {
+            _orbitPicking = false;
+            if (_pickEl) { _pickEl.style.cursor = ''; }
+            _orbitPt = null;
+            _disposeObj(_orbitBall); _orbitBall = null;
+            if (_view && _controls) { _view.notifyChange(_view.camera.camera3D); }
+            _vidSet({ pt: 'none' });
+        }
+
+        var _vid = null;   // export en cours : { cancelled, restore, start, target, after, pending, encoder }
+        var _VID_FPS = 30;
+        function _videoSupported() { return typeof window.VideoEncoder === 'function' && typeof window.VideoFrame === 'function'; }
+        function _vidSet(patch) {
+            var sc = _currentScope;
+            if (!sc) { return; }
+            Object.keys(patch).forEach(function (k) { sc.vid[k] = patch[k]; });
+            sc.$applyAsync();
+        }
+        function _vidAbort() {
+            var job = _vid;
+            if (!job) { return; }
+            job.cancelled = true;
+            _vidFinish(job);
+            _vidSet({ state: 'idle', pct: 0, msg: '' });
+        }
+        function _vidFinish(job) {
+            if (_vid !== job) { return; }
+            _vid = null;
+            job.pending = null;
+            try { if (_view && job.after) { _view.removeFrameRequester(MAIN_LOOP_EVENTS.AFTER_RENDER, job.after); } } catch (e) { /* vue détruite */ }
+            try { if (job.restore) { job.restore(); } } catch (e) { console.warn('[geo-lidar-hd] retour à la définition normale :', e); }
+            try {
+                if (_controls) { _controls.enabled = true; }
+                if (_view && _controls && job.start) {
+                    _controls.target.copy(job.target);
+                    _view.camera.camera3D.position.copy(job.start); _controls.update(); _view.notifyChange(_view.camera.camera3D);
+                }
+                _orbitPlace();
+            } catch (e) { console.warn('[geo-lidar-hd] retour de la caméra après la vidéo :', e); }
+        }
+        // Certains navigateurs (Firefox) encodent en H.264 mais ne donnent pas la description du flux (SPS/PPS, decoderConfig) dont un fichier MP4
+        // a besoin : on le vérifie une fois avec une toute petite image, et sans elle on écrit un WebM (VP9, VP8) à la place.
+        var _avcProbe = null;
+        function _vidAvcUsable() {
+            if (_avcProbe) { return _avcProbe; }
+            return (_avcProbe = new Promise(function (resolve) {
+                var done = false;
+                function end(v) { if (!done) { done = true; resolve(v); } }
+                try {
+                    var c = document.createElement('canvas'); c.width = c.height = 128;
+                    c.getContext('2d').fillRect(0, 0, 128, 128);
+                    var enc = new window.VideoEncoder({
+                        output: function (chunk, meta) { end(!!(meta && meta.decoderConfig && meta.decoderConfig.description)); },
+                        error: function () { end(false); }
+                    });
+                    enc.configure({ codec: 'avc1.64001f', width: 128, height: 128, bitrate: 1e6, framerate: _VID_FPS, avc: { format: 'avc' } });
+                    var f = new window.VideoFrame(c, { timestamp: 0 });
+                    enc.encode(f, { keyFrame: true }); f.close();
+                    enc.flush().then(function () { end(false); }, function () { end(false); });   // sortie déjà reçue, sinon : pas de H.264
+                    window.setTimeout(function () { end(false); }, 4000);
+                } catch (e) { end(false); }
+            }));
+        }
+        // Premier codec utilisable pour cette taille : H.264 (MP4, lu partout ; plusieurs niveaux car l'encodeur refuse un niveau trop bas pour
+        // la taille), sinon VP9 puis VP8 (WebM).
+        function _vidCodec(w, h, bps) {
+            return _vidAvcUsable().then(function (avcOk) {
+                var cands = (avcOk ? [
+                    { enc: 'avc1.640034', mux: 'avc', ext: 'mp4', mime: 'video/mp4' }, { enc: 'avc1.640033', mux: 'avc', ext: 'mp4', mime: 'video/mp4' },
+                    { enc: 'avc1.64002a', mux: 'avc', ext: 'mp4', mime: 'video/mp4' }
+                ] : []).concat([
+                    { enc: 'vp09.00.51.08', mux: 'V_VP9', ext: 'webm', mime: 'video/webm' }, { enc: 'vp8', mux: 'V_VP8', ext: 'webm', mime: 'video/webm' }
+                ]);
+                return cands.reduce(function (chain, c) {
+                    return chain.then(function (found) {
+                        if (found) { return found; }
+                        var conf = { codec: c.enc, width: w, height: h, bitrate: bps, framerate: _VID_FPS, latencyMode: 'realtime' };
+                        if (c.mux === 'avc') { conf.avc = { format: 'avc' }; }   // format attendu par un fichier MP4
+                        return window.VideoEncoder.isConfigSupported(conf)
+                            .then(function (r) { return r && r.supported ? { enc: r.config, mux: c.mux, name: c.enc, ext: c.ext, mime: c.mime, noAvc: !avcOk } : null; }, function () { return null; });
+                    });
+                }, Promise.resolve(null));
+            });
+        }
+        function _vidDelay(ms) { return new Promise(function (res) { window.setTimeout(res, ms); }); }
+        // Dessine la vue TOUT DE SUITE (on avance nous-mêmes la boucle d'iTowns d'un pas, sans attendre un requestAnimationFrame) puis exécute fn
+        // dans la même tâche : le contenu du canvas WebGL n'est valable qu'à ce moment-là. Une erreur du rendu remonte telle quelle.
+        function _vidRenderThen(job, fn) {
+            return new Promise(function (resolve, reject) {
+                try {
+                    job.pending = function () { try { fn(); resolve(); } catch (e) { reject(e); } };
+                    _view.notifyChange(_view.camera.camera3D, true);
+                    _view.mainLoop.step(_view, window.performance.now());
+                    if (job.pending) { job.pending = null; reject(new Error('la vue ne s\'est pas dessinée (rendu iTowns non exécuté)')); }
+                } catch (e) { job.pending = null; reject(e); }
+            });
+        }
+        function _maqRecord() {
+            var sc = _currentScope;
+            if (!sc || !_view || !_controls || _vid) { return; }
+            if (!_videoSupported()) { _vidSet({ state: 'error', msg: 'Ce navigateur ne sait pas encoder de vidéo (WebCodecs absent).' }); return; }
+            _maqStopAnim();
+            var cam = _view.camera.camera3D, oldTarget = _controls.target.clone(), target = oldTarget.clone();
+            if (_orbitPt) {   // orbite autour du point choisi : même direction de la caméra vers lui, même distance qu'avant
+                var pz = _orbitPoint();
+                if (pz.z === pz.z) { target = pz; }
+            }
+            var off0 = cam.position.clone().sub(target);
+            if (target !== oldTarget) { off0.setLength(cam.position.distanceTo(oldTarget)); }
+            var seconds = Math.max(5, Number(sc.vid.dur) || 20), total = Math.round(seconds * _VID_FPS);
+            // Résolution : iTowns dessine à 1 pixel par pixel d'écran ; pour Full HD (1920 px de large) ou 4K (3 840 px), on augmente la
+            // définition du canvas (sans changer sa taille à l'écran) pendant l'export.
+            var rd = _view.mainLoop.gfxEngine.renderer, oldPR = rd.getPixelRatio(), cssSize = rd.getSize(new Vector2());
+            var q = sc.vid.q, wide = q === '4k' ? 3840 : (q === 'hd' ? 1920 : 0), pr = Math.max(1, wide ? wide / Math.max(1, cssSize.x) : 1);
+            function setPR(v) { rd.setPixelRatio(v); rd.setSize(cssSize.x, cssSize.y); }
+            var job = _vid = { cancelled: false, start: cam.position.clone(), target: oldTarget, pending: null, encoder: null,
+                restore: function () { if (rd.getPixelRatio() !== oldPR) { setPR(oldPR); } } };
+            job.after = function () { var f = job.pending; if (f) { job.pending = null; f(); } };
+            _view.addFrameRequester(MAIN_LOOP_EVENTS.AFTER_RENDER, job.after);
+            _controls.enabled = false;
+            if (_orbitBall) { _orbitBall.visible = false; }   // le repère n'apparaît pas dans la vidéo
+            _vidSet({ state: 'rec', pct: 0, msg: 'Préparation de la vidéo…' });
+            setPR(pr);
+            cam.position.copy(target).add(off0);   // position de départ tout de suite, sans saut
+            _controls.target.copy(target); _controls.update();
+            var W = rd.domElement.width - (rd.domElement.width % 2), H = rd.domElement.height - (rd.domElement.height % 2);
+            var bps = Math.round(Math.max(10e6, Math.min(50e6, W * H * _VID_FPS * 0.12)));
+            var failure = null, muxer = null, encoder = null, fmt = null, mp4Ready = false, outN = 0, i = 0, t0 = 0, lastUi = 0;
+            _vidCodec(W, H, bps).then(function (cfg) {
+                if (!cfg) { throw new Error('aucun codec vidéo (H.264, VP9, VP8) disponible dans ce navigateur pour ' + W + ' × ' + H); }
+                fmt = cfg;
+                muxer = cfg.ext === 'mp4'
+                    ? new Mp4Muxer({ target: new Mp4Target(), video: { codec: 'avc', width: W, height: H }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' })   // moov en tête : lecture immédiate
+                    : new WebmMuxer({ target: new WebmTarget(), video: { codec: cfg.mux, width: W, height: H, frameRate: _VID_FPS }, firstTimestampBehavior: 'offset' })   // Firefox : la 1re image encodée n'est pas à 0;
+                encoder = job.encoder = new VideoEncoder({ output: function (chunk, meta) {
+                        try {
+                            if (fmt.ext === 'mp4' && !(meta && meta.decoderConfig) && !mp4Ready) { throw new Error('l\'encodeur H.264 de ce navigateur ne fournit pas la description du flux'); }
+                            if (meta && meta.decoderConfig) { mp4Ready = true; }
+                            // Firefox ne renseigne pas la durée et ne garantit pas des horodatages croissants : sans images B (mode realtime),
+                            // l'ordre de sortie est l'ordre d'affichage, on pose donc nous-mêmes l'horodatage image par image
+                            var data = new Uint8Array(chunk.byteLength);
+                            chunk.copyTo(data);
+                            if (outN < 4) { console.info('[geo-lidar-hd] vidéo : sortie ' + outN + ' ' + chunk.type + ' ts=' + chunk.timestamp); }
+                            muxer.addVideoChunkRaw(data, chunk.type, Math.round(outN * 1e6 / _VID_FPS), Math.round(1e6 / _VID_FPS), meta);
+                            outN++;
+                        } catch (e) { failure = failure || e; }
+                    }, error: function (e) { failure = e; } });
+                encoder.configure(cfg.enc);
+                console.info('[geo-lidar-hd] vidéo : ' + W + ' × ' + H + ', ' + cfg.name + ', ' + (bps / 1e6).toFixed(0) + ' Mbit/s, ' + total + ' images');
+                t0 = window.performance.now();
+                return _vidDelay(400);   // la vue se redessine une première fois à la nouvelle définition
+            }).then(function nextFrame() {
+                if (_vid !== job || job.cancelled) { return false; }
+                if (failure) { throw failure; }
+                if (i >= total) { return true; }
+                if (encoder.encodeQueueSize > 6) { return _vidDelay(20).then(nextFrame); }   // l'encodeur n'a pas suivi : on attend
+                cam.position.copy(target).add(off0.clone().applyAxisAngle(_UP, -2 * Math.PI * i / total));
+                _controls.target.copy(target); _controls.update();
+                return _vidRenderThen(job, function () {
+                    var frame = new VideoFrame(rd.domElement, { timestamp: Math.round(i * 1e6 / _VID_FPS), duration: Math.round(1e6 / _VID_FPS) });
+                    encoder.encode(frame, { keyFrame: i % (_VID_FPS * 2) === 0 });
+                    frame.close();
+                }).then(function () {
+                    i++;
+                    var now = window.performance.now();
+                    if (now - lastUi > 400) {
+                        lastUi = now;
+                        var left = Math.round((now - t0) / i * (total - i) / 1000);
+                        _vidSet({ pct: Math.round(100 * i / total), msg: 'Image ' + i + ' / ' + total + ' — encore ' + (left >= 90 ? Math.round(left / 60) + ' min' : left + ' s') });
+                    }
+                    return _vidDelay(0).then(nextFrame);   // rend la main à l'interface (annulation, progression)
+                });
+            }).then(function (complete) {
+                if (!complete) { return null; }
+                _vidSet({ pct: 100, msg: 'Finalisation du fichier…' });
+                return encoder.flush().then(function () {
+                    if (failure) { throw failure; }
+                    muxer.finalize();
+                    var blob = new Blob([muxer.target.buffer], { type: fmt.mime }), d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; };
+                    _downloadBlob(blob, 'maquette-' + (_main ? _main.name : 'dalle') + '-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + '.' + fmt.ext);
+                    _vidSet({ state: 'done', pct: 100, msg: 'Vidéo enregistrée (' + (blob.size / 1048576).toFixed(1).replace('.', ',') + ' Mo, ' + fmt.ext.toUpperCase() + ', ' + W + ' × ' + H + ', ' + _VID_FPS + ' images/s)' + (fmt.noAvc ? ' ; MP4 indisponible dans ce navigateur, d\'où le WebM.' : '.') });
+                });
+            }).catch(function (err) {
+                console.warn('[geo-lidar-hd] export vidéo :', err);
+                if (_vid === job) { _vidSet({ state: 'error', pct: 0, msg: 'Export vidéo impossible : ' + (err && err.message ? err.message : err) }); }
+            }).then(function () {
+                try { if (encoder && encoder.state !== 'closed') { encoder.close(); } } catch (e) { /* déjà fermé */ }
+                _vidFinish(job);
+            });
         }
 
         // Emprise d'une dalle LiDAR HD d'après son nom « XXXX-YYYY » = coin nord-ouest en km (Lambert-93).
@@ -2608,6 +2908,7 @@ angular
             var d = _pickDown;
             _pickDown = null;
             if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4 || Date.now() - d.t > 600) { return; }
+            if (_orbitPicking) { _orbitSetFromClick(e.clientX, e.clientY); return; }
             var hit = _pickPoint(e.clientX, e.clientY);
             if (hit) { _setPick(hit); }
         }
@@ -2627,6 +2928,10 @@ angular
 
         // Taille apparente constante du repère (iTowns ne met pas à jour les matrices de la scène : on le fait ici).
         function _scalePick() {
+            if (_orbitBall && _view) {
+                _orbitBall.scale.setScalar(Math.max(0.1, _view.camera.camera3D.position.distanceTo(_orbitBall.position) * 0.006));
+                _orbitBall.updateMatrixWorld(true);
+            }
             if (!_pickBall || !_view) { return; }
             _pickBall.scale.setScalar(Math.max(0.1, _view.camera.camera3D.position.distanceTo(_pickBall.position) * 0.006));
             _pickBall.updateMatrixWorld(true);
@@ -2693,6 +2998,7 @@ angular
 
         function _loadAt(lonLat) {
             var seq = ++_loadSeq;
+            _orbitClear();
             _setLoading('Recherche de la dalle LiDAR HD…');
             _placeMarker(lonLat);
 
@@ -5472,6 +5778,7 @@ angular
                 '.geo-lidar-row select{flex:1;color:#000}',
                 '.geo-lidar-presets{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 2px}',
                 '.geo-lidar-btn.geo-lidar-btn--small{padding:2px 8px;font-size:12px;border-radius:6px;background:rgba(255,255,255,.12);color:#e6e8eb}',
+                '.geo-lidar-row--maq-vid .geo-lidar-btn,.geo-lidar-row--maq-orbit .geo-lidar-btn{white-space:nowrap;flex:0 0 auto}',
                 '.geo-lidar-btn.geo-lidar-btn--small:hover{background:rgba(255,255,255,.22)}',
                 '.geo-lidar-panel--filters{width:290px}',
                 '.geo-lidar-panel--mnt{width:340px}',

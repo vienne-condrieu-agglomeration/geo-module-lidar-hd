@@ -11,29 +11,9 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
-### Corrigé
+## [2.0.0] — 2026-11-18
 
-- Maquette 3D : les fichiers de bâtiments et d'arbres servis par GitHub Pages pouvaient manquer au hasard d'une dalle (le serveur répond parfois 503, sans les en-têtes qui permettraient au navigateur de lire l'erreur, quand le module demande 18 fichiers d'un coup). Le module relit maintenant les fichiers en cas d'erreur réseau, 429, 502, 503 ou 504 (3 reprises à délai croissant). Il lit aussi l'`index.json` publié avec les fichiers, quand il existe, et ne demande que les dalles qu'il liste : plus de volée de requêtes 404 pour les dalles sans fichier. Sans index, il essaie les fichiers un à un comme avant ; un index d'un format inconnu désactive bâtiments et arbres au lieu de les lire de travers. La description du réglage « URL des données 3D » précise qu'il faut l'adresse du site GitHub Pages et non celle du dépôt
-
-### Modifié
-
-- Générateur : les réglages sont répartis en quatre sections (« Données LiDAR HD », « Coloration par orthophoto (WMS) », « Maquette 3D », « Options du panneau »), et leurs descriptions suivent le même ordre : rôle, valeur par défaut (celle de l'IGN pour le WMS), contraintes. Un champ vidé reprend désormais la valeur de l'IGN (c'était déjà le cas partout sauf pour l'URL du WMS d'orthophotos, qui désactivait alors la coloration) ; la désactivation passe par une nouvelle case « Colorer par orthophoto », cochée par défaut. Une configuration déjà enregistrée avec une URL de WMS vide colore donc de nouveau les points avec le WMS de l'IGN : décocher la case pour l'éviter
-- Le décodeur LAZ (laz-perf) est désormais embarqué dans le module : il n'est plus téléchargé depuis le CDN jsDelivr au démarrage, et le module fonctionne sur un poste sans accès à Internet public, hors services de l'IGN. Le réglage « URL du décodeur laz-perf » du Générateur disparaît : une valeur déjà enregistrée est ignorée
-- Les données LiDAR (plages COPC) et les rasters MNT / MNS / MNH sont désormais conservés par le navigateur (2 Go au plus, 7 jours) : recharger la page, rouvrir le panneau ou refaire un export ne retélécharge plus les dalles déjà vues. Avant, le cache ne vivait qu'en mémoire (vidé au rechargement de la page) et les rasters n'étaient jamais conservés. L'encart d'informations de la dalle (bouton « i ») indique la taille du cache et propose de le vider
-
-### Ajouté
-
-- Orthophoto : la couche du WMS n'est plus imposée. Un nouveau réglage « Couche WMS d'orthophotos » du Générateur fixe la couche par défaut, et le panneau « Style » propose les autres couches du service (liste lue dans son GetCapabilities, limitée à celles qui servent EPSG:2154), ce qui permet d'utiliser par exemple le WMS du CRAIG ou un espace de travail GeoServer. Le choix est mémorisé par navigateur. Si l'orthophoto ne se charge pas (couche inconnue, projection non servie, service inaccessible), l'encart d'informations (« i ») s'ouvre et le dit, au lieu de laisser disparaître le mode « Orthophoto » sans explication. Le mode s'appelle désormais « Orthophoto » (et non « Orthophoto IGN »)
-- Maquette : un bouton « Exporter » (ligne « Vidéo ») enregistre un tour complet autour d'un point et télécharge une vidéo MP4 (WebM si le navigateur n'a pas d'encodeur H.264), durée au choix : 10, 20 ou 30 s. Le point se choisit en cliquant sur la maquette (« Choisir le point ») ; un repère le montre, mais il n'apparaît pas dans la vidéo. Sans point choisi, la vidéo tourne autour du centre de la vue. Le réglage « Qualité » choisit la définition : « Full HD » (1920 px de large, par défaut), « Taille de la vue » ou « 4K » (3840 px). La vidéo est calculée image par image : elle fait toujours 30 images par seconde, fluide, quelle que soit la puissance du poste ; l'export est plus long sur un poste lent, et une barre de progression l'indique
-
-## [1.2.1] — 2026-11-17
-
-### Corrigé
-
-- Maquette : les dalles voisines se raccordent désormais quand on exagère le relief, sans fentes blanches entre elles
-- Maquette : une dalle dont le relief n'a pas pu être lu au premier essai est relue automatiquement, au lieu de manquer dans la maquette
-
-## [1.2.0] — 2026-11-13
+Version majeure : le réglage « URL du décodeur laz-perf » du Générateur disparaît (voir « Supprimé »). Les autres réglages existants ne changent pas : tout le reste est ajouté ou facultatif.
 
 ### Ajouté
 
@@ -41,14 +21,32 @@ git). La version la plus récente publiée doit être celle de `package.json` et
   du MNS. Une case « Bâtiments LoD2 » apparaît dans le panneau Maquette quand l'administrateur a renseigné le réglage
   « URL des données 3D de la ville » et laissé activé « Activer les bâtiments LoD2 » ; elle est absente sinon, et le module se comporte comme avant. Les bâtiments suivent le
   curseur (du terrain nu à la surface), le relief et « Animer ». Les murs sont gris, les toits portent l'orthophoto.
-  Fonction en prototype : les fichiers se préparent hors du module (documentation du dépôt), une dalle sans fichier
+  Fonction en prototype : les fichiers sont préparés hors du module par l'intégrateur communautaire `geo-community-integrator-city3d`, une dalle sans fichier
   reste inchangée, et les bâtiments qu'on ne sait pas reconstruire restent tels que dans le MNS
 - Maquette : les arbres peuvent remplacer les cônes de la végétation du MNS. Une case « Arbres » apparaît dans le panneau Maquette
   quand l'administrateur a renseigné le réglage « URL des données 3D de la ville » et laissé activé « Activer les arbres 3D » ; elle est absente sinon, et le module se comporte comme
   avant. Chaque arbre est un houppier arrondi sur un tronc, posé au sol, à la couleur de l'orthophoto ; les arbres suivent le curseur
   (ils poussent du terrain nu à la surface), le relief et « Animer ». Les arbres viennent des points classés « végétation » du
-  LiDAR HD, préparés hors du module (documentation du dépôt). Fonction en prototype : les formes sont des volumes simples, sans
+  LiDAR HD, préparés hors du module par l'intégrateur communautaire `geo-community-integrator-city3d`. Fonction en prototype : les formes sont des volumes simples, sans
   distinction entre résineux et feuillus, et une dalle sans fichier reste inchangée
+- Données 3D de la maquette : l'adresse à saisir est celle du site qui les héberge (pour GitHub Pages, `https://<organisation>.github.io/<dépôt>`, et non celle du dépôt). Des fichiers prêts pour neuf dalles autour du centre de Vienne sont publiés par la bibliothèque : `https://vienne-condrieu-agglomeration.github.io/geo-community-data-city3d`. Le module lit l'`index.json` publié avec les fichiers, quand il existe, et ne demande que les dalles qu'il liste ; sans index il les essaie une à une, et un index d'un format inconnu désactive bâtiments et arbres au lieu de les lire de travers. Les fichiers sont relus en cas d'erreur réseau, 429, 502, 503 ou 504 (3 reprises à délai croissant), pour qu'une dalle ne manque pas au hasard quand le serveur répond un 503 sous rafale
+- Orthophoto : la couche du WMS n'est plus imposée. Un nouveau réglage « Couche WMS d'orthophotos » du Générateur fixe la couche par défaut, et le panneau « Style » propose les autres couches du service (liste lue dans son GetCapabilities, limitée à celles qui servent EPSG:2154), ce qui permet d'utiliser par exemple le WMS du CRAIG ou un espace de travail GeoServer. Le choix est mémorisé par navigateur. Si l'orthophoto ne se charge pas (couche inconnue, projection non servie, service inaccessible), l'encart d'informations (« i ») s'ouvre et le dit, au lieu de laisser disparaître le mode « Orthophoto » sans explication. Le mode s'appelle désormais « Orthophoto » (et non « Orthophoto IGN »)
+- Maquette : un bouton « Exporter » (ligne « Vidéo ») enregistre un tour complet autour d'un point et télécharge une vidéo MP4 (WebM si le navigateur n'a pas d'encodeur H.264), durée au choix : 10, 20 ou 30 s. Le point se choisit en cliquant sur la maquette (« Choisir le point ») ; un repère le montre, mais il n'apparaît pas dans la vidéo. Sans point choisi, la vidéo tourne autour du centre de la vue. Le réglage « Qualité » choisit la définition : « Full HD » (1920 px de large, par défaut), « Taille de la vue » ou « 4K » (3840 px). La vidéo est calculée image par image : elle fait toujours 30 images par seconde, fluide, quelle que soit la puissance du poste ; l'export est plus long sur un poste lent, et une barre de progression l'indique
+
+### Modifié
+
+- Générateur : les réglages sont répartis en quatre sections (« Données LiDAR HD », « Coloration par orthophoto (WMS) », « Maquette 3D », « Options du panneau »), et leurs descriptions suivent le même ordre : rôle, valeur par défaut (celle de l'IGN pour le WMS), contraintes. Un champ vidé reprend désormais la valeur de l'IGN (c'était déjà le cas partout sauf pour l'URL du WMS d'orthophotos, qui désactivait alors la coloration) ; la désactivation passe par une nouvelle case « Colorer par orthophoto », cochée par défaut. Une configuration déjà enregistrée avec une URL de WMS vide colore donc de nouveau les points avec le WMS de l'IGN : décocher la case pour l'éviter
+- Les données LiDAR (plages COPC) et les rasters MNT / MNS / MNH sont désormais conservés par le navigateur (2 Go au plus, 7 jours) : recharger la page, rouvrir le panneau ou refaire un export ne retélécharge plus les dalles déjà vues. Avant, le cache ne vivait qu'en mémoire (vidé au rechargement de la page) et les rasters n'étaient jamais conservés. L'encart d'informations de la dalle (bouton « i ») indique la taille du cache et propose de le vider
+- Le décodeur LAZ (laz-perf) est désormais embarqué dans le module : il n'est plus téléchargé depuis le CDN jsDelivr au démarrage, et le module fonctionne sur un poste sans accès à Internet public, hors services de l'IGN
+
+### Corrigé
+
+- Maquette : les dalles voisines se raccordent désormais quand on exagère le relief, sans fentes blanches entre elles
+- Maquette : une dalle dont le relief n'a pas pu être lu au premier essai est relue automatiquement, au lieu de manquer dans la maquette
+
+### Supprimé
+
+- Le réglage « URL du décodeur laz-perf » du Générateur : le décodeur est embarqué dans le module. Une valeur déjà enregistrée est ignorée, sans erreur
 
 ## [1.1.2] — 2026-11-05
 

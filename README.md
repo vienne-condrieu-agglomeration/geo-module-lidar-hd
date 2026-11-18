@@ -6,7 +6,7 @@ Module GEO qui affiche en 3D le nuage de points **LiDAR HD de l'IGN** à l'endro
 profils en travers et exporte le terrain ou les points en DXF, directement depuis une application GEO.
 
 - **Identifiant** : `geo.lidar.hd`
-- **Version** : 1.1.2
+- **Version** : 2.0.0
 - **État** : essayé sur un serveur GEO. Voir les [limites connues](#limites-connues)
 - **Données** : services publics de l'IGN (nuages de points, MNT, MNS, orthophotos) et cadastre diffusé par Etalab.
   Le module n'a pas de serveur : le navigateur lit directement ces données
@@ -35,7 +35,7 @@ endroit, puis les 8 dalles voisines en arrière-plan : un anneau bleu autour du 
 | **Voisines** | Charge ou retire les 8 dalles autour de la dalle cliquée, avec un budget de points commun |
 | **Style** | Forme et taille des points, atténuation, gamma, opacité, niveau de détail, budget, fond |
 | **Filtres** | Tranche d'altitude, tranche de hauteur au-dessus du sol, classes visibles (vue 3D et profil) |
-| **Maquette** | Surface pleine d'après le MNT et le MNS, du terrain nu à la surface, exagération du relief |
+| **Maquette** | Surface pleine d'après le MNT et le MNS, du terrain nu à la surface, exagération du relief ; bâtiments LoD2 et arbres 3D (si les données 3D sont renseignées dans le Générateur) ; export d'une vidéo MP4 ou WebM d'un tour de la maquette |
 | **Profil** | Coupe le long d'un tracé sur la carte GEO : courbes MNT et MNS, pentes, mesures, cadastre, exports PNG, CSV et DXF |
 | **Terrain** | Export d'une emprise dessinée sur la carte : terrain en faces 3D (DXF), cadastre, orthophoto en GeoTIFF, points du nuage (DXF) |
 

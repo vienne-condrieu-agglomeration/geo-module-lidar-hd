@@ -13,6 +13,7 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ### Modifié
 
+- Le décodeur LAZ (laz-perf) est désormais embarqué dans le module : il n'est plus téléchargé depuis le CDN jsDelivr au démarrage, et le module fonctionne sur un poste sans accès à Internet public, hors services de l'IGN. Le réglage « URL du décodeur laz-perf » du Générateur disparaît : une valeur déjà enregistrée est ignorée
 - Les données LiDAR (plages COPC) et les rasters MNT / MNS / MNH sont désormais conservés par le navigateur (2 Go au plus, 7 jours) : recharger la page, rouvrir le panneau ou refaire un export ne retélécharge plus les dalles déjà vues. Avant, le cache ne vivait qu'en mémoire (vidé au rechargement de la page) et les rasters n'étaient jamais conservés. L'encart d'informations de la dalle (bouton « i ») indique la taille du cache et propose de le vider
 
 ### Ajouté

@@ -75,7 +75,6 @@ cette API en dépendance fixe : sans elle, c'est toute l'application qui risque 
 | `wfsUrl` | WFS des dalles | `https://data.geopf.fr/wfs` |
 | `pointBudget` | Points affichés simultanément, toutes dalles confondues | 2 000 000 |
 | `neighbourTiles` | Charger les 8 dalles voisines en arrière-plan (valeur par défaut du bouton « Voisines ») | oui |
-| `lazPerfUrl` | Dossier de `laz-perf.wasm` | jsDelivr |
 | `orthoWmsUrl` | WMS d'orthophotos pour colorer les points (vide = désactivé) | `https://data.geopf.fr/wms-r/wms` |
 | `orthoMaxSize` | Résolution maximale de l'orthophoto (1024 / 2048 / 4096 px) | 4096 |
 | `city3dUrl` | Dossier de base des données 3D de la maquette (prototype : voir `scripts/city3d/README.md`) : `<URL>/buildings/<dalle>.bld` (bâtiments LoD2 reconstruits par roofer) et `<URL>/vegetation/<dalle>.veg` (canopée issue des points classés végétation). Active les cases « Bâtiments LoD2 » et « Arbres » du panneau Maquette, selon les deux interrupteurs ci-dessous (vide = désactivé, comportement inchangé) | vide |
@@ -91,7 +90,6 @@ Le poste de l'utilisateur doit pouvoir joindre ces services. Sans accès Interne
 | Service | Usage | Obligatoire |
 |---|---|---|
 | `data.geopf.fr` (IGN) | Dalles, nuages de points, MNT, MNS, orthophotos | oui |
-| `cdn.jsdelivr.net` | Décodeur `laz-perf.wasm`. Peut être hébergé en interne : réglage `lazPerfUrl` | oui, sauf hébergement interne |
 | `apicarto.ign.fr` | Communes pour le cadastre | pour le cadastre |
 | `cadastre.s3.rbx.io.cloud.ovh.net` (Etalab) | Cadastre PCI Vecteur | pour le cadastre |
 

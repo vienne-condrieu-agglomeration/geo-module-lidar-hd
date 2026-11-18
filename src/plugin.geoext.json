@@ -57,15 +57,6 @@
         },
         {
           "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
-          "name": "URL du décodeur laz-perf",
-          "description": "Dossier contenant laz-perf.wasm, chargé par le navigateur pour décompresser le LAZ. Par défaut le CDN jsDelivr ; à remplacer par une copie interne si le poste n'a pas accès à Internet public.",
-          "key": "lazPerfUrl",
-          "required": false,
-          "type": "STRING",
-          "defaultValue": "https://cdn.jsdelivr.net/npm/laz-perf@0.0.6/lib"
-        },
-        {
-          "@type": "com.bg.functionality.canvas.configuration.PropertyConfigurationElement",
           "name": "URL du WMS d'orthophotos",
           "description": "Service WMS (couche ORTHOIMAGERY.ORTHOPHOTOS, EPSG:2154, CORS) utilisé pour colorer les points avec l'orthophoto IGN. Laisser vide pour désactiver ce mode.",
           "key": "orthoWmsUrl",

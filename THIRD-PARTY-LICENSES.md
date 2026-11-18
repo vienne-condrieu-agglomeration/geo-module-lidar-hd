@@ -877,7 +877,7 @@ Un composant sous double licence (iTowns : CeCILL-B ou MIT) est utilisé ici sou
     Domain](http://creativecommons.org/publicdomain/zero/1.0/). Do with it what you
     will.
 
-### laz-perf 0.0.7
+### laz-perf 0.0.7 (décodeur WebAssembly embarqué dans main.js)
 
 - Licence : **Apache-2.0** — https://github.com/hobuinc/laz-perf
 - Texte (texte du dépôt d'origine (https://github.com/hobuinc/laz-perf), le paquet npm n'en contient pas) :
@@ -1517,12 +1517,6 @@ Un composant sous double licence (iTowns : CeCILL-B ou MIT) est utilisé ici sou
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### laz-perf 0.0.6 — chargé à l'exécution depuis jsDelivr
-
-Le décodeur LAZ (WebAssembly) n'est pas dans `main.js` : il est téléchargé au démarrage depuis
-`https://cdn.jsdelivr.net/npm/laz-perf@0.0.6/lib` (adresse modifiable dans la configuration du module).
-Licence **Apache-2.0**, texte reproduit ci-dessus avec laz-perf 0.0.7.
 
 ### Services de données
 

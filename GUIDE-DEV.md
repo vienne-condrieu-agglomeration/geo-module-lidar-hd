@@ -31,8 +31,9 @@ Fonctionnement interne, vérifications réalisées et pistes d'évolution. Pour 
   Le loader échoue volontairement si iTowns change ce motif : **iTowns est figé à 2.46.0**.
 - `EPSG:2154` est enregistré sur l'unique copie de `proj4` embarquée (iTowns est consommé depuis `lib/`,
   pas depuis `dist/itowns.js`, qui contient sa propre copie de proj4).
-- Le décodeur `laz-perf.wasm` est chargé par le navigateur depuis `lazPerfUrl` (CDN jsDelivr par défaut).
-  Sur un poste sans accès Internet public, héberger `laz-perf@0.0.6/lib` en interne et régler cette clé.
+- Le décodeur `laz-perf.wasm` (0.0.7, ~210 Ko) est embarqué dans le worker : `src/js/las-worker.js` est une copie du worker d'iTowns
+  qui crée le décodeur avec `wasmBinary` (base64 injecté par `webpack.worker.config.js`). Aucun accès à un CDN, aucun réglage.
+  Si iTowns change `LASLoaderWorker.js`, reporter la différence.
 - Pas de publication directe sur le serveur GEO (`npm run publish`) pour ce module : importer le ZIP à la main dans le Générateur.
 
 ## Cycle de vie et mémoire des outils
@@ -439,8 +440,7 @@ colorés par classification ou orthophoto.
 
 ### Robustesse
 
-- **Embarquer `laz-perf.wasm`** dans le bundle (~210 Ko) : plus de dépendance au CDN jsDelivr, utile en intranet
-  (la clé `lazPerfUrl` pourrait alors servir de surcharge).
+- ~~**Embarquer `laz-perf.wasm`** dans le bundle~~ *(fait)* : voir « Particularités techniques ».
 - ~~**Cache des plages COPC** (API Cache du navigateur)~~ *(fait)* : `src/js/disk-cache.js`, voir « Cache ».
 
 ### Plus ambitieux
@@ -525,5 +525,4 @@ l'améliorent immédiatement — puis 3, qui réutilise les mêmes rasters ; 4 e
 
 Fait : profil en travers (aperçu, pleine densité, polyligne, mesure, zoom, sommets déplaçables, pentes, exports PNG / CSV /
 DXF, volume du couloir en 3D), filtres d'altitude et de classes. Suite conseillée : rasters MNS / MNT / MNH (hauteur au sol, puis courbes du profil), puis dalles voisines, puis
-`laz-perf.wasm` embarqué et cache de plages disque (reporté pour l'instant : utile surtout si les serveurs GEO n'ont pas
-d'accès sortant vers le CDN jsDelivr).
+~~`laz-perf.wasm` embarqué~~ et ~~cache de plages disque~~ (faits).

@@ -174,7 +174,6 @@ angular
         // ============================================================
         var _wfsUrl      = 'https://data.geopf.fr/wfs';
         var _pointBudget = 2000000;
-        var _lazPerfUrl  = 'https://cdn.jsdelivr.net/npm/laz-perf@0.0.6/lib';
         var _toolName    = 'LiDAR HD';
         // Journal des nouveautés : lien dans la fenêtre d'aide, point rouge sur le bouton « ? » tant que non lu
         var changelog = createChangelog({
@@ -226,7 +225,6 @@ angular
                 var props = config[0].properties;
                 _wfsUrl      = (props.wfsUrl || _wfsUrl).trim();
                 _pointBudget = parseInt(props.pointBudget, 10) || _pointBudget;
-                _lazPerfUrl  = (props.lazPerfUrl || _lazPerfUrl).trim().replace(/\/+$/, '');
                 _toolName    = props.toolName || _toolName;
                 var crs = parseCrsList(props.crsList);
                 _CRS_LIST = crs.items;
@@ -1198,7 +1196,6 @@ angular
         }
 
         function _createView(viewerDiv) {
-            LASParser.enableLazPerf(_lazPerfUrl);
             _view = new View('EPSG:2154', viewerDiv, { disableFocusOnStart: true });
             _view.mainLoop.gfxEngine.renderer.setClearColor(_BG.light);
             _view.addFrameRequester(MAIN_LOOP_EVENTS.BEFORE_RENDER, _applyBudget);

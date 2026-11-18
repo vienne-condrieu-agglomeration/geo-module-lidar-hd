@@ -18,7 +18,7 @@ import { createDiskCache } from './disk-cache.js';
 import { parseWmsLayers, capabilitiesUrl } from './wms-capabilities.js';
 import { parseBld, maskSurface } from './buildings.js';
 import { parseVeg, detectTrees, removeCanopy } from './vegetation.js';
-import { city3dUrls } from './city3d.js';
+import { city3dUrls, city3dIndexUrl, parseCity3dIndex, fetchRetry } from './city3d.js';
 import { Muxer as WebmMuxer, ArrayBufferTarget as WebmTarget } from 'webm-muxer';
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { driver } from 'driver.js';
@@ -188,6 +188,7 @@ angular
         // Marge (m) dont on élargit les emprises pour masquer les bâtiments du MNS : 1 m, puis 0,1 m par mètre de hauteur au-delà
         // de 12 m, au plus 3 m (les grands bâtiments dépassent plus leur emprise BD TOPO ; voir marginFor dans buildings.js).
         var _BLD_MARGIN   = { base: 1, from: 12, perMeter: 0.1, cap: 3 };
+        var _city3dIndexUrl = '';                               // <city3dUrl>/index.json, lu une fois : seules les dalles qu'il liste sont demandées
         var _vegetationUrl = '';                                // dossier des <dalle>.veg = <city3dUrl>/vegetation si treesEnabled ; vide = désactivé
 
         var _WFS_TYPENAME = 'IGNF_LIDAR-HD_METADONNEE:metadata';
@@ -241,6 +242,7 @@ angular
                 // Données 3D de la ville : un dossier de base (city3dUrl) et un interrupteur par fonction (voir city3d.js).
                 var urls3d = city3dUrls(props);
                 _buildingsUrl = urls3d.buildings; _vegetationUrl = urls3d.vegetation;
+                _city3dIndexUrl = urls3d.buildings || urls3d.vegetation ? city3dIndexUrl(props) : '';
             }
             if (!_registered) {
                 _registered = true;
@@ -1745,16 +1747,51 @@ angular
             });
         }
 
+        // Index des données 3D (<city3dUrl>/index.json, écrit par l'intégrateur city3d) : une requête pour toutes les dalles, relue au bout de
+        // 10 minutes. Il évite de demander les fichiers des dalles qui n'en ont pas (une volée de 404, dont GitHub Pages bloque parfois
+        // certaines en 503). Absent ou illisible : on essaie les fichiers un à un, comme avant. Format inconnu : bâtiments et arbres
+        // ne sont pas lus (on ne devine pas un format).
+        var _INDEX_TTL = 10 * 60 * 1000, _city3dIndex = null;
+        function _loadCity3dIndex() {
+            if (!_city3dIndexUrl) { return Promise.resolve(null); }
+            if (_city3dIndex && _city3dIndex.url === _city3dIndexUrl && Date.now() - _city3dIndex.at < _INDEX_TTL) { return _city3dIndex.promise; }
+            var url = _city3dIndexUrl;
+            var promise = fetchRetry(function (u) { return fetch(u); }, url).then(function (r) {
+                return r.ok ? r.json() : null;   // 404 : pas d'index
+            }).then(function (data) {
+                if (!data) { return null; }
+                var idx = parseCity3dIndex(data);
+                if (idx.status === 'unsupported') { console.warn('[geo-lidar-hd] index des données 3D (' + url + ') : ' + idx.reason + ' : bâtiments et arbres désactivés'); }
+                if (idx.status === 'invalid') { console.warn('[geo-lidar-hd] index des données 3D (' + url + ') ignoré : ' + idx.reason); return null; }
+                return idx;
+            }).catch(function (err) {
+                console.warn('[geo-lidar-hd] index des données 3D (' + url + ') illisible, essai fichier par fichier :', err);
+                return null;
+            });
+            _city3dIndex = { url: url, at: Date.now(), promise: promise };
+            return promise;
+        }
+        // Fichier d'une fonction pour une dalle : null si l'index dit qu'il n'existe pas (ou refuse le format), sinon lecture avec reprises ;
+        // 404 = null aussi. `kind` : 'buildings' ou 'vegetation'.
+        function _fetchCity3dFile(kind, tileName, url) {
+            return _loadCity3dIndex().then(function (idx) {
+                if (idx && idx.status === 'unsupported') { return null; }
+                if (idx && idx.status === 'ok' && !idx[kind][tileName]) { return null; }
+                return fetchRetry(function (u) { return fetch(u); }, url).then(function (r) {
+                    if (r.status === 404) { return null; }
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.arrayBuffer();
+                });
+            });
+        }
+
         // Bâtiments LoD2 de la dalle (<city3dUrl>/buildings/<dalle>.bld), lus une fois quand la maquette les demande. Fichier absent
-        // (404) : silence, la dalle reste comme sans le réglage. Les autres échecs sont signalés une fois dans la console.
+        // (404, ou dalle absente de l'index) : silence, la dalle reste comme sans le réglage. Les autres échecs, après reprises, sont
+        // signalés une fois dans la console.
         function _startBuildings(tile, seq) {
             tile.bldLoading = true;
             var url = _buildingsUrl + '/' + encodeURIComponent(tile.name) + '.bld';
-            fetch(url).then(function (r) {
-                if (r.status === 404) { return null; }
-                if (!r.ok) { throw new Error('HTTP ' + r.status); }
-                return r.arrayBuffer();
-            }).then(function (buf) {
+            _fetchCity3dFile('buildings', tile.name, url).then(function (buf) {
                 tile.bldLoading = false;
                 if (seq !== _loadSeq || !_view || _tiles.indexOf(tile) === -1) { return; }
                 if (!buf) { tile.bldMissing = true; return; }
@@ -1771,15 +1808,12 @@ angular
         }
 
         // Canopée de la dalle (<city3dUrl>/vegetation/<dalle>.veg), lue une fois quand la maquette la demande. Même règle que pour les
-        // bâtiments : fichier absent (404) = silence, autre échec = une ligne dans la console, la dalle reste comme avant.
+        // bâtiments : fichier absent (404, ou dalle absente de l'index) = silence, autre échec après reprises = une ligne dans la console,
+        // la dalle reste comme avant.
         function _startVegetation(tile, seq) {
             tile.vegLoading = true;
             var url = _vegetationUrl + '/' + encodeURIComponent(tile.name) + '.veg';
-            fetch(url).then(function (r) {
-                if (r.status === 404) { return null; }
-                if (!r.ok) { throw new Error('HTTP ' + r.status); }
-                return r.arrayBuffer();
-            }).then(function (buf) {
+            _fetchCity3dFile('vegetation', tile.name, url).then(function (buf) {
                 return buf ? parseVeg(buf) : null;
             }).then(function (veg) {
                 tile.vegLoading = false;

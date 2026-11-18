@@ -1,0 +1,205 @@
+{
+ "format": 1,
+ "source": "IGN, LiDAR HD et BD TOPO®, traitement Vienne Condrieu Agglomération",
+ "licence": "Licence Ouverte 2.0",
+ "dalles": {
+  "0845-6493": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0845_6493_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0845-6493.bld",
+    "taille": 1035644,
+    "sha256": "852f0975b968d79718fde1f9bc951b56532c4efd8eca2dc74fa9845e37b9febc",
+    "nombre": 689
+   },
+   "vegetation": {
+    "fichier": "vegetation/0845-6493.veg",
+    "taille": 860718,
+    "sha256": "3bcbe05bafc5c1899d2f1b32adb9964b4936e8e11ceff79e147f9205be900454"
+   }
+  },
+  "0845-6494": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0845_6494_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0845-6494.bld",
+    "taille": 991024,
+    "sha256": "3713bae8e1474c159c59af0d72c6b28abf3e96f11e28ad45f1a299d83571fcad",
+    "nombre": 741
+   },
+   "vegetation": {
+    "fichier": "vegetation/0845-6494.veg",
+    "taille": 1012505,
+    "sha256": "06e8a5dd1e96041b7a5874120b0717905ceadf80b1ee36afe3b866bca3bce9e1"
+   }
+  },
+  "0845-6495": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0845_6495_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0845-6495.bld",
+    "taille": 494252,
+    "sha256": "3b3ecc9e2926eb2af6f3be022474fc4b1c2cdaa1bc52af3ec8b0ab8dc2f5387d",
+    "nombre": 468
+   },
+   "vegetation": {
+    "fichier": "vegetation/0845-6495.veg",
+    "taille": 832623,
+    "sha256": "68541e083e5c97915d99d0d6755c7cc8972ddd4c35e7904d3aee1ba9c33ed207"
+   }
+  },
+  "0846-6493": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0846_6493_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0846-6493.bld",
+    "taille": 634356,
+    "sha256": "15ab6be83a0bf614f42ed2cb1d604d885f170cc1af29f2376fb9e775832ec34f",
+    "nombre": 567
+   },
+   "vegetation": {
+    "fichier": "vegetation/0846-6493.veg",
+    "taille": 1493191,
+    "sha256": "03adfc40b1a43e2f00e9193275e32d8f3a2784d788427ce376c7954515e1b3c5"
+   }
+  },
+  "0846-6494": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0846_6494_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0846-6494.bld",
+    "taille": 2747704,
+    "sha256": "05168982ad48ba971353d347c9c2ebc4ec1d083151a1793e3520da9d09861789",
+    "nombre": 1471
+   },
+   "vegetation": {
+    "fichier": "vegetation/0846-6494.veg",
+    "taille": 923125,
+    "sha256": "3786db47cd29c3188306dfdb53e391ded686ebeaf0758a67794b025396883312"
+   }
+  },
+  "0846-6495": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0846_6495_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0846-6495.bld",
+    "taille": 671456,
+    "sha256": "95194d7e12a8ba9a61b7682da84fbadbce44091863f71a3de29070d526c693d0",
+    "nombre": 409
+   },
+   "vegetation": {
+    "fichier": "vegetation/0846-6495.veg",
+    "taille": 1208855,
+    "sha256": "cb94eb9381acd9a4b724589dbee8a1aef7811fd75098e7a456d90799ad911bbe"
+   }
+  },
+  "0847-6493": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0847_6493_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0847-6493.bld",
+    "taille": 370320,
+    "sha256": "a33d6e53fde6cd27800f8c69b8e972bc9cfee2c3cb1132b0d64bfe7d1b8b6819",
+    "nombre": 354
+   },
+   "vegetation": {
+    "fichier": "vegetation/0847-6493.veg",
+    "taille": 1460923,
+    "sha256": "c96e7207d337daf137532e3ccd4a29cb956574f7943e247425d612dfa953d49c"
+   }
+  },
+  "0847-6494": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0847_6494_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0847-6494.bld",
+    "taille": 355888,
+    "sha256": "69215e6211569e3750a3d09c26c967d68897d6f53233221e76d9f4221c361df6",
+    "nombre": 281
+   },
+   "vegetation": {
+    "fichier": "vegetation/0847-6494.veg",
+    "taille": 1693717,
+    "sha256": "97e09c7f86a61967097193b80a2270334315e7189d361a8fa5cf59e666e58a67"
+   }
+  },
+  "0847-6495": {
+   "integrateur": "0.1.0",
+   "outils": {
+    "roofer": "3dgi/roofer:v1.0.0",
+    "pdal": "pdal/pdal@sha256:3e38c3feaa100878a285a8dba721dea3995f335f2b70e930382586279e32e064"
+   },
+   "source": {
+    "url": "https://data.geopf.fr/telechargement/download/LiDARHD-NUALID/NUALHD_1-0__LAZ_LAMB93_OL_2025-02-20/LHD_FXX_0847_6495_PTS_LAMB93_IGN69.copc.laz",
+    "edition": "2025-02-20"
+   },
+   "batiments": {
+    "fichier": "buildings/0847-6495.bld",
+    "taille": 541108,
+    "sha256": "bfc29dfe85393edecbe10576f92fe8f65d5ba86fe4b11356631ce4a3d0d45fc2",
+    "nombre": 445
+   },
+   "vegetation": {
+    "fichier": "vegetation/0847-6495.veg",
+    "taille": 1221015,
+    "sha256": "88df2e7ec47aecd2abbb3c16ddefb010bd6e34968d4d45a5c6937d47ceac3667"
+   }
+  }
+ }
+}

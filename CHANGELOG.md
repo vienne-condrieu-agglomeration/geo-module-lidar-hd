@@ -11,6 +11,10 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ## [Non publié]
 
+### Corrigé
+
+- Maquette 3D : les fichiers de bâtiments et d'arbres servis par GitHub Pages pouvaient manquer au hasard d'une dalle (le serveur répond parfois 503, sans les en-têtes qui permettraient au navigateur de lire l'erreur, quand le module demande 18 fichiers d'un coup). Le module relit maintenant les fichiers en cas d'erreur réseau, 429, 502, 503 ou 504 (3 reprises à délai croissant). Il lit aussi l'`index.json` publié avec les fichiers, quand il existe, et ne demande que les dalles qu'il liste : plus de volée de requêtes 404 pour les dalles sans fichier. Sans index, il essaie les fichiers un à un comme avant ; un index d'un format inconnu désactive bâtiments et arbres au lieu de les lire de travers. La description du réglage « URL des données 3D » précise qu'il faut l'adresse du site GitHub Pages et non celle du dépôt
+
 ### Modifié
 
 - Générateur : les réglages sont répartis en quatre sections (« Données LiDAR HD », « Coloration par orthophoto (WMS) », « Maquette 3D », « Options du panneau »), et leurs descriptions suivent le même ordre : rôle, valeur par défaut (celle de l'IGN pour le WMS), contraintes. Un champ vidé reprend désormais la valeur de l'IGN (c'était déjà le cas partout sauf pour l'URL du WMS d'orthophotos, qui désactivait alors la coloration) ; la désactivation passe par une nouvelle case « Colorer par orthophoto », cochée par défaut. Une configuration déjà enregistrée avec une URL de WMS vide colore donc de nouveau les points avec le WMS de l'IGN : décocher la case pour l'éviter

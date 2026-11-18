@@ -102,7 +102,7 @@ Le serveur de l'IGN limite le débit : le module limite ses requêtes en parall�
 - **Mémoire** : la vue masquée et le cache de données (250 Mo au plus) restent en mémoire jusqu'au rechargement de la
   page. Un poste modeste peut donc préférer un budget de points plus bas.
 - **Cache disque** : les données LiDAR et les rasters déjà lus sont conservés par le navigateur (2 Go au plus, 7 jours),
-  y compris après rechargement de la page. Le panneau « Style » en indique la taille et permet de le vider ; une dalle
+  y compris après rechargement de la page. L'encart d'informations de la dalle (bouton « i ») en indique la taille et permet de le vider ; une dalle
   republiée par l'IGN n'est revue qu'après ce délai ou après « Vider ».
 - **Couverture** : seules les dalles publiées par l'IGN sont disponibles, et une dalle peut être sans MNT.
 - **Cadastre** : tracé indicatif, sans valeur juridique ni de bornage. Les fichiers sont lus par commune.

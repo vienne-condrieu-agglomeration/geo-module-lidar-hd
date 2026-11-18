@@ -13,7 +13,7 @@ git). La version la plus récente publiée doit être celle de `package.json` et
 
 ### Modifié
 
-- Les données LiDAR (plages COPC) et les rasters MNT / MNS / MNH sont désormais conservés par le navigateur (2 Go au plus, 7 jours) : recharger la page, rouvrir le panneau ou refaire un export ne retélécharge plus les dalles déjà vues. Avant, le cache ne vivait qu'en mémoire (vidé au rechargement de la page) et les rasters n'étaient jamais conservés. Le panneau « Style » indique la taille du cache et propose de le vider
+- Les données LiDAR (plages COPC) et les rasters MNT / MNS / MNH sont désormais conservés par le navigateur (2 Go au plus, 7 jours) : recharger la page, rouvrir le panneau ou refaire un export ne retélécharge plus les dalles déjà vues. Avant, le cache ne vivait qu'en mémoire (vidé au rechargement de la page) et les rasters n'étaient jamais conservés. L'encart d'informations de la dalle (bouton « i ») indique la taille du cache et propose de le vider
 
 ### Ajouté
 

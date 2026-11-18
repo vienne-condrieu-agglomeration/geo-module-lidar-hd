@@ -105,7 +105,7 @@ d'export des points) → cache disque (`disk-cache.js`, API Cache, 2 Go, 7 jours
 - L'index (taille, date) est reconstitué au premier accès depuis les en-têtes `x-size` / `x-cached-at` des entrées : aucun corps n'est lu.
   Éviction par ancienneté d'usage ; une entrée de plus de 7 jours est supprimée.
 - Un raster dont la réponse commence par `<?xml`, `<service` ou `<html` (erreur WMS en HTTP 200) n'est jamais conservé.
-- Le volume réel des 9 dalles de Vienne n'est pas mesuré : le panneau « Style » affiche la taille courante, à relever.
+- Le volume réel des 9 dalles de Vienne n'est pas mesuré : l'encart d'informations de la dalle affiche la taille courante, à relever.
 - Les mises à jour de l'IGN ne sont vues qu'après 7 jours ou après « Vider » : à garder en tête si une dalle est republiée.
 
 ## Rendu

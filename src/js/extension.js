@@ -342,9 +342,6 @@ angular
                 '      <input type="range" min="0.5" max="10" step="0.5" ng-model="style.budget" ng-change="applyStyle()"><em>{{ style.budget }}</em></div>',
                 '    <div class="geo-lidar-row geo-lidar-row--bg"><span>Fond</span>',
                 '      <select ng-model="style.bg" ng-change="applyStyle()"><option value="light">Clair</option><option value="dark">Sombre</option></select></div>',
-                '    <div class="geo-lidar-row geo-lidar-row--cache" ng-if="diskCache"><span>Cache disque</span>',
-                '      <em>{{ diskCache.text }}</em>',
-                '      <button class="geo-lidar-btn geo-lidar-btn--small" ng-click="clearDiskCache()" ng-disabled="!diskCache.count" title="Supprime les données LiDAR et rasters conservées par le navigateur : elles seront retéléchargées au prochain chargement">Vider</button></div>',
                 '  </div>',
                 '  <div class="geo-lidar-panel geo-lidar-panel--mnt" ng-if="mnt.open && !mnt.drawing">',
                 '    <div class="geo-lidar-panel-title">Export du terrain',
@@ -652,6 +649,8 @@ angular
                 '    <span ng-if="tile.mission">Mission {{ tile.mission }}<br></span>',
                 '    <span ng-if="around">{{ aroundLabel() }}<br></span>',
                 '    <a ng-href="{{ tile.url }}" target="_blank" rel="noopener">Télécharger le COPC</a>',
+                '    <div class="geo-lidar-info-cache" ng-if="diskCache">Cache disque : {{ diskCache.text }}',
+                '      <button class="geo-lidar-link" ng-click="clearDiskCache()" ng-disabled="!diskCache.count" title="Supprime les données LiDAR et rasters conservées par le navigateur : elles seront retéléchargées au prochain chargement">Vider</button></div>',
                 '    </div>',
                 '  </div>',
                 '  <div class="geo-lidar-center" ng-if="!tile && !status && !loading">',
@@ -781,7 +780,7 @@ angular
                                      gamma: 1, ambient: 0, opacity: 1, sse: 2, budget: _pointBudget / 1e6, bg: 'light',
                                      altOn: false, altLo: 0, altHi: 1, altMin: 0, altMax: 1,
                                      hagColorMax: 30, hagOn: false, hagLo: -2, hagHi: 60, hagFrom: -2, hagTo: 60 };
-                // Cache disque : taille affichée dans le panneau Style, et bouton pour le vider.
+                // Cache disque : taille affichée dans l'encart d'informations de la dalle, et lien pour le vider.
                 $scope.diskCache = null;
                 function _refreshDiskCache() {
                     _diskCache.stats().then(function (st) {
@@ -792,7 +791,8 @@ angular
                 }
                 function _fmtBytes(n) { return n >= 1073741824 ? (n / 1073741824).toFixed(1) + ' Go' : Math.round(n / 1048576) + ' Mo'; }
                 $scope.clearDiskCache = function () { _clearRangeCache(); _diskCache.clear().then(_refreshDiskCache); };
-                $scope.$watch('ui.panelOpen', function (open) { if (open) { _refreshDiskCache(); } });
+                $scope.$watch('ui.infoOpen', function (open) { if (open) { _refreshDiskCache(); } });
+                $scope.$watch('tile', function (t) { if (t && $scope.ui.infoOpen) { _refreshDiskCache(); } });
                 $scope.wheel     = _readWheelPref();   // 'zoom' (molette) ou 'orbit' (deux doigts = rotation)
                 $scope.drag      = 'rotate';           // glisser à un doigt : 'rotate' ou 'pan'
                 $scope.classes   = [];
@@ -5803,7 +5803,9 @@ angular
                 '.geo-lidar-row>span{flex:0 0 100px}',
                 '.geo-lidar-row input[type=range]{flex:1;min-width:0}',
                 '.geo-lidar-row em{flex:0 0 34px;font-style:normal;color:#2cc9ff;text-align:right}',
-                '.geo-lidar-row--cache em{flex:1 1 auto;text-align:left}',
+                '.geo-lidar-info-cache{margin-top:4px}',
+                '.geo-lidar-link{background:none;border:0;padding:0 0 0 6px;color:#79b8ff;cursor:pointer;font:inherit;text-decoration:underline}',
+                '.geo-lidar-link:disabled{color:#8b949e;cursor:default;text-decoration:none}',
                 '.geo-lidar-row select{flex:1;color:#000}',
                 '.geo-lidar-presets{display:flex;flex-wrap:wrap;gap:4px;padding:6px 10px 2px}',
                 '.geo-lidar-btn.geo-lidar-btn--small{padding:2px 8px;font-size:12px;border-radius:6px;background:rgba(255,255,255,.12);color:#e6e8eb}',

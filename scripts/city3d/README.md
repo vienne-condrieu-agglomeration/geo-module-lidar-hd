@@ -1,5 +1,7 @@
 # city3d : la ville en 3D pour la maquette
 
+> **Repris dans l'intégrateur `src/integrators/city3d`** (dépôt GitHub `geo-community-integrator-city3d`, commande `integrator_city3d.py`), qui remplace les scripts `prepare-*.sh` et produira les fichiers pour GitHub Pages. Ce dossier reste inchangé jusqu'à la validation de l'intégrateur, puis sera supprimé du module. Les formats restent décrits dans `GUIDE-DEV.md`.
+
 Outils hors navigateur qui préparent les fichiers statiques lus par le panneau Maquette du module (bâtiments LoD2 et arbres 3D), et
 de quoi les essayer en local. Rien ici n'est exécuté par GEO ni livré dans le ZIP du module.
 
